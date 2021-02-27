@@ -20,23 +20,7 @@ const TestStructure = struct {
 };
 
 test "full structure" {
-    const xml =
-        \\<?xml version=\"1.0\"?>
-        \\<root>
-        \\  <element1 attr1="hello" attr2="world">
-        \\      <child1>I am required</child1>
-        \\  </element1>
-        \\  <element2>
-        \\      <child2>I am optional</child2>
-        \\      <repeated>
-        \\          <anotherone>Another one</anotherone>
-        \\      </repeated>
-        \\      <repeated>
-        \\          <anotherone>Another two</anotherone>
-        \\      </repeated>
-        \\  </element2>
-        \\</root>
-        ;
+    const xml = @embedFile("full.xml");
     var parser = XMLParser.init(testing.allocator);
     defer parser.deinit();
     const result = try parser.parseDocumentFromString(TestStructure, xml);
