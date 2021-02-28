@@ -13,12 +13,12 @@ base_url: [:0]const u8,
 pub fn init(allocator: *Allocator) !Server {
     if (c.UpnpInit2(null, 0) != c.UPNP_E_SUCCESS) return Error;
     if (c.UpnpSetWebServerRootDir("./web") != c.UPNP_E_SUCCESS) return Error;
-    const base_url = try std.fmt.allocPrintZ(&self.base_url_buf, "http://{s}:{}/", .{
+    const base_url = try std.fmt.allocPrintZ(allocator, "http://{s}:{}/", .{
         c.UpnpGetServerIpAddress(),
         c.UpnpGetServerPort()
     });
-    logger.notice("Server listening on {}", .{self.base_url});
-    return Self { .allocator = allocator, .base_url = base_url };
+    logger.notice("Server listening on {}", .{base_url});
+    return Server { .allocator = allocator, .base_url = base_url };
 }
 
 pub fn deinit(self: *Server) void {
