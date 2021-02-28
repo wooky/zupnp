@@ -1,4 +1,4 @@
-const c = @cImport(@cInclude("upnp/upnp.h"));
+const c = @import("../c.zig");
 const std = @import("std");
 const ArenaAllocator = std.heap.ArenaAllocator;
 const Error = error.XMLWriteError;
@@ -18,7 +18,7 @@ pub fn deinit(self: *XMLWriter) void {
     self.arena.deinit();
 }
 
-pub fn writeStructToDocumentString(self: *XMLWriter, input: anytype) ![]const u8 {
+pub fn writeStructToDocumentString(self: *XMLWriter, input: anytype) ![:0]const u8 {
     const handle = try self.writeStructToDocumentHandle(input);
     defer c.ixmlDocument_free(handle);
     const doc = c.ixmlPrintDocument(handle) orelse {
@@ -30,7 +30,7 @@ pub fn writeStructToDocumentString(self: *XMLWriter, input: anytype) ![]const u8
     doc_slice.ptr = doc;
     doc_slice.len = 0;
     while (doc[doc_slice.len] != 0) : (doc_slice.len += 1) {}
-    return self.arena.allocator.dupe(u8, doc_slice);
+    return self.arena.allocator.dupeZ(u8, doc_slice);
 }
 
 pub fn writeStructToDocumentHandle(self: *XMLWriter, input: anytype) !*c.IXML_Document {

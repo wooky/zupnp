@@ -1,5 +1,5 @@
 const testing = @import("std").testing;
-const XMLParser = @import("zupnp").XMLParser;
+const Parser = @import("zupnp").xml.Parser;
 
 const TestStructure = struct {
     root: struct {
@@ -21,7 +21,7 @@ const TestStructure = struct {
 
 test "full structure" {
     const xml = @embedFile("full.xml");
-    var parser = XMLParser.init(testing.allocator);
+    var parser = Parser.init(testing.allocator);
     defer parser.deinit();
     const result = try parser.parseDocumentFromString(TestStructure, xml);
 
@@ -45,7 +45,7 @@ test "minimal structure" {
         \\  </element2>
         \\</root>
         ;
-    var parser = XMLParser.init(testing.allocator);
+    var parser = Parser.init(testing.allocator);
     defer parser.deinit();
     const result = try parser.parseDocumentFromString(TestStructure, xml);
 
@@ -57,14 +57,14 @@ test "minimal structure" {
 }
 
 test "empty string" {
-    var parser = XMLParser.init(testing.allocator);
+    var parser = Parser.init(testing.allocator);
     defer parser.deinit();
     testing.expectError(error.XMLParseError, parser.parseDocumentFromString(TestStructure, ""));
 }
 
 test "empty document" {
     const xml = "<?xml version=\"1.0\"?>";
-    var parser = XMLParser.init(testing.allocator);
+    var parser = Parser.init(testing.allocator);
     defer parser.deinit();
     testing.expectError(error.XMLParseError, parser.parseDocumentFromString(TestStructure, xml));
 }

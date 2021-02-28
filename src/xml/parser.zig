@@ -1,4 +1,4 @@
-const c = @cImport(@cInclude("upnp/upnp.h"));
+const c = @import("../c.zig");
 const std = @import("std");
 const ArenaAllocator = std.heap.ArenaAllocator;
 const Error = error.XMLParseError;

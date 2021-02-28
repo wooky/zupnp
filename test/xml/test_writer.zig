@@ -1,6 +1,6 @@
 const std = @import("std");
 const testing = std.testing;
-const XMLWriter = @import("zupnp").XMLWriter;
+const Writer = @import("zupnp").xml.Writer;
 
 const Repeated = struct {
     anotherone: []const u8,
@@ -44,7 +44,7 @@ test "full structure" {
             },
         },
     };
-    var writer = XMLWriter.init(testing.allocator);
+    var writer = Writer.init(testing.allocator);
     defer writer.deinit();
     const result = try writer.writeStructToDocumentString(input);
 
