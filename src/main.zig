@@ -5,6 +5,7 @@ pub const upnp = struct {
 };
 
 pub const xml = struct {
+    usingnamespace @import("xml/xml.zig");
     pub const Parser = @import("xml/parser.zig");
     pub const Writer = @import("xml/writer.zig");
 };
