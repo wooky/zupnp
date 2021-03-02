@@ -46,9 +46,12 @@ test "full structure" {
     };
     var writer = Writer.init(testing.allocator);
     defer writer.deinit();
-    const result = try writer.writeStructToDocumentString(input);
+    var doc = try writer.writeStructToDocument(input);
+    defer doc.deinit();
+    var result = try doc.toString();
+    defer result.deinit();
 
     var buf: [512]u8 = undefined;
     const expected_xml = @embedFile("full.xml");
-    testing.expectEqualSlices(u8, expected_xml, result);
+    testing.expectEqualSlices(u8, expected_xml, result.string);
 }

@@ -1,5 +1,7 @@
 const testing = @import("std").testing;
-const Parser = @import("zupnp").xml.Parser;
+const zupnp = @import("zupnp");
+const Document = zupnp.xml.Document;
+const Parser = zupnp.xml.Parser;
 
 const TestStructure = struct {
     root: struct {
@@ -20,10 +22,11 @@ const TestStructure = struct {
 };
 
 test "full structure" {
-    const xml = @embedFile("full.xml");
+    var doc = try Document.fromString(@embedFile("full.xml"));
+    defer doc.deinit();
     var parser = Parser.init(testing.allocator);
     defer parser.deinit();
-    const result = try parser.parseDocumentFromString(TestStructure, xml);
+    const result = try parser.parseDocument(TestStructure, doc);
 
     testing.expectEqualStrings("hello", result.root.element1.__attributes__.attr1);
     testing.expectEqualStrings("world", result.root.element1.__attributes__.attr2.?);
@@ -35,7 +38,7 @@ test "full structure" {
 }
 
 test "minimal structure" {
-    const xml =
+    var doc = try Document.fromString(
         \\<?xml version=\"1.0\"?>
         \\<root>
         \\  <element1 attr1="hello">
@@ -44,10 +47,11 @@ test "minimal structure" {
         \\  <element2>
         \\  </element2>
         \\</root>
-        ;
+    );
+    defer doc.deinit();
     var parser = Parser.init(testing.allocator);
     defer parser.deinit();
-    const result = try parser.parseDocumentFromString(TestStructure, xml);
+    const result = try parser.parseDocument(TestStructure, doc);
 
     testing.expectEqualStrings("hello", result.root.element1.__attributes__.attr1);
     testing.expectEqual(@as(?[]const u8, null), result.root.element1.__attributes__.attr2);
@@ -56,15 +60,10 @@ test "minimal structure" {
     testing.expectEqual(@as(usize, 0), result.root.element2.repeated.len);
 }
 
-test "empty string" {
-    var parser = Parser.init(testing.allocator);
-    defer parser.deinit();
-    testing.expectError(error.XMLParseError, parser.parseDocumentFromString(TestStructure, ""));
-}
-
 test "empty document" {
-    const xml = "<?xml version=\"1.0\"?>";
+    var doc = try Document.fromString("<?xml version=\"1.0\"?>");
+    defer doc.deinit();
     var parser = Parser.init(testing.allocator);
     defer parser.deinit();
-    testing.expectError(error.XMLParseError, parser.parseDocumentFromString(TestStructure, xml));
+    testing.expectError(error.XMLParseError, parser.parseDocument(TestStructure, doc));
 }

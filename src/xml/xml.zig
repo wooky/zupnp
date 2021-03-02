@@ -18,12 +18,12 @@ pub fn AbstractNode(comptime NodeType: type) type {
             return null;
         }
 
-        pub fn appendChild(self: *NodeType, child: anytype) !void {
+        pub fn appendChild(self: *const NodeType, child: anytype) !void {
             try check(c.ixmlNode_appendChild(@ptrCast(*c.IXML_Node, self.handle), @ptrCast(*c.IXML_Node, child.handle)), "Failed to append child", "err");
         }
 
-        pub fn toNode(self: *NodeType) !Node {
-            return try Node.fromHandle(self.handle);
+        pub fn toNode(self: *const NodeType) !Node {
+            return try Node.fromHandle(@ptrCast(*c.IXML_Node, self.handle));
         }
     };
 }
@@ -67,17 +67,17 @@ pub const Document = struct {
         return Document { .handle = handle };
     }
 
-    pub fn deinit(self: *Document) void {
+    pub fn deinit(self: *const Document) void {
         c.ixmlDocument_free(self.handle);
     }
 
-    pub fn createElement(self: *Document, tag_name: [:0]const u8) !Element {
+    pub fn createElement(self: *const Document, tag_name: [:0]const u8) !Element {
         var element_handle: [*c]c.IXML_Element = undefined;
         try check(c.ixmlDocument_createElementEx(self.handle, tag_name, &element_handle), "Failed to create element", "err");
         return Element.init(element_handle);
     }
 
-    pub fn createTextNode(self: *Document, data: [:0]const u8) !TextNode {
+    pub fn createTextNode(self: *const Document, data: [:0]const u8) !TextNode {
         var node_handle: [*c]c.IXML_Node = undefined;
         try check(c.ixmlDocument_createTextNodeEx(self.handle, data, &node_handle), "Failed to create text node", "err");
         return TextNode.init(node_handle);
@@ -112,12 +112,16 @@ pub const Element = struct {
         return null;
     }
 
-    pub fn setAttribute(self: *Element, name: [:0]const u8, value: [:0]const u8) !void {
+    pub fn setAttribute(self: *const Element, name: [:0]const u8, value: [:0]const u8) !void {
         try check(c.ixmlElement_setAttribute(self.handle, name, value), "Failed to set attribute", "err");
     }
 
-    pub fn removeAttribute(self: *Element, name: [:0]const u8) !void {
+    pub fn removeAttribute(self: *const Element, name: [:0]const u8) !void {
         try check(c.ixmlElement_removeAttribute(self.handle, name), "Failed to remove attriute", "err");
+    }
+
+    pub fn getAttributes(self: *const Element) AttributeMap {
+        return AttributeMap.init(c.ixmlNode_getAttributes(@ptrCast(*c.IXML_Node, self.handle)));
     }
 
     pub fn getElementsByTagName(self: *const Element, tag_name: [:0]const u8) NodeList {
@@ -138,7 +142,7 @@ pub const TextNode = struct {
         return cStringToSlice(c.ixmlNode_getNodeValue(self.handle));
     }
 
-    pub fn setValue(self: *TextNode, value: [:0]const u8) !void {
+    pub fn setValue(self: *const TextNode, value: [:0]const u8) !void {
         try check(c.ixmlNode_setNodeValue(self.handle, value), "Failed to set text node value", "err");
     }
 };
@@ -172,7 +176,7 @@ pub const NodeList = struct {
     pub fn getSingleItem(self: *const NodeList) !Node {
         const length = self.getLength();
         if (length != 1) {
-            logger.err("Node list expected to have 1 item, actual {}", .{length});
+            logger.warn("Node list expected to have 1 item, actual {}", .{length});
             return Error;
         }
         return self.getItem(0);
@@ -212,9 +216,9 @@ pub const AttributeMap = struct {
         return AttributeMap { .handle = handle };
     }
 
-    pub fn getNamedItem(self: *const AttributeMap) !?Node {
-        if (c.ixmlNamedNodeMap_getNamedItem(self.handle)) |child_handle| {
-            return Node.fromHandle(child_handle);
+    pub fn getNamedItem(self: *const AttributeMap, name: [:0]const u8) ?TextNode {
+        if (c.ixmlNamedNodeMap_getNamedItem(self.handle, name)) |child_handle| {
+            return TextNode.init(child_handle);
         }
         return null;
     }
