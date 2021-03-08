@@ -26,7 +26,7 @@ pub fn addDevice(self: *UPnPServer, device: *Device) !void {
     var schema = try device.createSchema(udn, udn_url);
     defer schema.deinit();
     {
-        if (c.is_error(c.UpnpRegisterRootDevice2(c.Upnp_DescType.UPNPREG_BUF_DESC, schema.string, schema.string.len, 1, Device.onEvent, self, &device.handle))) |err| {
+        if (c.is_error(c.UpnpRegisterRootDevice2(c.Upnp_DescType.UPNPREG_BUF_DESC, schema.string, schema.string.len, 1, Device.onEvent, device, &device.handle))) |err| {
             logger.err("Cannot register device: {s}", .{c.UpnpGetErrorMessage(err)});
             return error.UPnPError;
         }

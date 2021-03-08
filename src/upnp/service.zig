@@ -8,15 +8,12 @@ const ActionMap = std.StringHashMap([]Argument);
 
 allocator: *Allocator,
 service_type: []const u8,
-service_id: []const u8,
 actions: ActionMap,
 
-// TODO service ID should probably be assigned by the device, not hardcoded in the service
-pub fn init(allocator: *Allocator, service_type: []const u8, service_id: []const u8) Service {
+pub fn init(allocator: *Allocator, service_type: []const u8) Service {
     return .{
         .allocator = allocator,
         .service_type = service_type,
-        .service_id = service_id,
         .actions = ActionMap.init(allocator),
     };
 }

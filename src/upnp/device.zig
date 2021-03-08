@@ -4,7 +4,7 @@ const Allocator = std.mem.Allocator;
 const zupnp = @import("../main.zig");
 
 const Device = @This();
-const ServiceMap = std.StringHashMap(*zupnp.upnp.Service);
+const ServiceList = std.ArrayList(*zupnp.upnp.Service);
 const logger = std.log.scoped(.Device);
 
 pub const Error = error.UPnPError;
@@ -12,7 +12,7 @@ pub const Error = error.UPnPError;
 allocator: *Allocator,
 device_type: []const u8,
 friendly_name: []const u8,
-services: ServiceMap,
+services: ServiceList,
 
 handle: c.UpnpDevice_Handle = undefined,
 
@@ -25,7 +25,7 @@ pub fn init(
         .allocator = allocator,
         .device_type = device_type,
         .friendly_name = friendly_name,
-        .services = ServiceMap.init(allocator),
+        .services = ServiceList.init(allocator),
     };
 }
 
@@ -35,23 +35,23 @@ pub fn deinit(self: *Device) void {
 }
 
 pub fn addService(self: *Device, service: *zupnp.upnp.Service) !void {
-    try self.services.putNoClobber(service.service_id, service);
+    try self.services.append(service);
 }
 
 pub fn createSchema(self: *Device, udn: []const u8, udn_url: []const u8) !zupnp.xml.DOMString {
     var writer = zupnp.xml.Writer.init(self.allocator);
     defer writer.deinit();
 
-    var schema_services = std.ArrayList(DeviceSchema.Service).init(self.allocator);
-    defer schema_services.deinit();
-    var iter = self.services.iterator();
-    while (iter.next()) |kv| {
+    var arena = std.heap.ArenaAllocator.init(self.allocator);
+    defer arena.deinit();
+    var schema_services = std.ArrayList(DeviceSchema.Service).init(&arena.allocator);
+    for (self.services.items) |service, idx| {
         try schema_services.append(.{
-            .serviceType = kv.value.service_type,
-            .serviceId = kv.value.service_id,
-            .SCPDURL = try std.fmt.allocPrint(self.allocator, "{}/{}/{}", .{udn_url, kv.value.service_id, "IDK"}),
-            .controlURL = try std.fmt.allocPrint(self.allocator, "{}/{}/{}", .{udn_url, kv.value.service_id, "control"}),
-            .eventSubURL = try std.fmt.allocPrint(self.allocator, "{}/{}/{}", .{udn_url, kv.value.service_id, "event"}),
+            .serviceType = service.service_type,
+            .serviceId = try std.fmt.allocPrint(&arena.allocator, "{}", .{idx}),
+            .SCPDURL = try std.fmt.allocPrint(&arena.allocator, "{}/scpd/{}", .{udn_url, idx}),
+            .controlURL = try std.fmt.allocPrint(&arena.allocator, "{}/control/{}", .{udn_url, idx}),
+            .eventSubURL = try std.fmt.allocPrint(&arena.allocator, "{}/event/{}", .{udn_url, idx}),
         });
     }
 
@@ -80,7 +80,7 @@ pub fn onEvent(event_type: c.Upnp_EventType, event: ?*const c_void, cookie: ?*c_
     var mut_event = @intToPtr(*c_void, @ptrToInt(event));
     switch (event_type) {
         c.Upnp_EventType.UPNP_CONTROL_ACTION_REQUEST =>
-            self.handleAction(@ptrCast(*c.UpnpActionRequest, mut_event)) catch |err| logger.err("{}", err),
+            self.handleAction(@ptrCast(*c.UpnpActionRequest, mut_event)) catch |err| logger.err("{}", .{err}),
         else =>
             logger.info("Unexpected event type {}", .{@tagName(event_type)})
     }
@@ -88,14 +88,12 @@ pub fn onEvent(event_type: c.Upnp_EventType, event: ?*const c_void, cookie: ?*c_
 }
 
 fn handleAction(self: *Device, action: *c.UpnpActionRequest) !void {
-    const service_id = upnpStringToSlice(c.UpnpActionRequest_get_ServiceID(action));
-    const entry = self.services.getEntry(service_id);
-    if (entry) |e| {
-        try e.value.handleAction(action);
+    const service_id_str = upnpStringToSlice(c.UpnpActionRequest_get_ServiceID(action));
+    const service_id = try std.fmt.parseInt(usize, service_id_str, 10);
+    if (service_id >= self.services.items.len) {
+        return Error;
     }
-    else {
-        logger.info("Unexpected service ID {}", .{service_id});
-    }
+    try self.services.items[service_id].handleAction(action);
 }
 
 fn upnpStringToSlice(str: ?*const c.UpnpString) []const u8 {
