@@ -4,7 +4,7 @@ const Allocator = std.mem.Allocator;
 const zupnp = @import("../main.zig");
 
 const Device = @This();
-const ServiceMap = std.StringHashMap(zupnp.upnp.Service);
+const ServiceMap = std.StringHashMap(*zupnp.upnp.Service);
 const logger = std.log.scoped(.Device);
 
 pub const Error = error.UPnPError;
@@ -13,10 +13,8 @@ allocator: *Allocator,
 device_type: []const u8,
 friendly_name: []const u8,
 services: ServiceMap,
-udn: []const u8,
 
 handle: c.UpnpDevice_Handle = undefined,
-started: bool = false,
 
 pub fn init(
     allocator: *Allocator,
@@ -28,40 +26,19 @@ pub fn init(
         .device_type = device_type,
         .friendly_name = friendly_name,
         .services = ServiceMap.init(allocator),
-        .udn = "udn:TODO",
     };
 }
 
 pub fn deinit(self: *Device) void {
-    self.started = false;
     _ = c.UpnpUnRegisterRootDevice(self.handle);
     self.services.deinit();
 }
 
-pub fn addService(self: *Device, service: zupnp.upnp.Service) !void {
-    std.debug.assert(!self.started);
-    try self.services.putNoClobber(service.id, service);
+pub fn addService(self: *Device, service: *zupnp.upnp.Service) !void {
+    try self.services.putNoClobber(service.service_id, service);
 }
 
-pub fn addToServer(self: *Device, server: *zupnp.upnp.UPnPServer) !void {
-    std.debug.assert(!self.started);
-    const udn_url = try std.fmt.allocPrint(self.allocator, "{}{}", .{server.server.base_url, self.udn});
-    defer self.allocator.free(udn_url);
-
-    var schema = try self.createSchema(udn_url);
-    defer schema.deinit();
-    {
-        if (c.is_error(c.UpnpRegisterRootDevice2(c.Upnp_DescType.UPNPREG_BUF_DESC, schema.string, schema.string.len, 1, onEvent, self, &self.handle))) |err| {
-            logger.err("Cannot register device: {s}", .{c.UpnpGetErrorMessage(err)});
-            return Error;
-        }
-    }
-    
-    if (c.UpnpSendAdvertisement(self.handle, 100) != c.UPNP_E_SUCCESS) return Error;
-    logger.info("Started {}", .{self.friendly_name});
-}
-
-fn createSchema(self: *Device, udn_url: []const u8) !zupnp.xml.DOMString {
+pub fn createSchema(self: *Device, udn: []const u8, udn_url: []const u8) !zupnp.xml.DOMString {
     var writer = zupnp.xml.Writer.init(self.allocator);
     defer writer.deinit();
 
@@ -85,7 +62,7 @@ fn createSchema(self: *Device, udn_url: []const u8) !zupnp.xml.DOMString {
             .device = .{
                 .deviceType = self.device_type,
                 .friendlyName = self.friendly_name,
-                .UDN = self.udn,
+                .UDN = udn,
                 .iconList = null,
                 .serviceList = .{
                     .service = schema_services.items,
@@ -98,7 +75,7 @@ fn createSchema(self: *Device, udn_url: []const u8) !zupnp.xml.DOMString {
     return try doc.toString();
 }
 
-fn onEvent(event_type: c.Upnp_EventType, event: ?*const c_void, cookie: ?*c_void) callconv(.C) c_int {
+pub fn onEvent(event_type: c.Upnp_EventType, event: ?*const c_void, cookie: ?*c_void) callconv(.C) c_int {
     var self = @ptrCast(*Device, @alignCast(8, cookie));
     var mut_event = @intToPtr(*c_void, @ptrToInt(event));
     switch (event_type) {
