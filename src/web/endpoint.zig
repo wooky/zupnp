@@ -1,33 +1,50 @@
 const std = @import("std");
+const Allocator = std.mem.Allocator;
 const Arena = std.heap.ArenaAllocator;
 const c = @import("../c.zig");
 const zupnp = @import("../main.zig");
 
 pub const Response = struct {
     contents: []const u8,
-    content_type: ?[]const u8 = null,
+    content_type: [:0]const u8 = "text/html",
+    is_readable: bool = true,
 };
 
 const Request = struct {
-    response: Response,
-    seek_pos: usize = 0,
+    arena: Arena,
+    contents: []const u8,
+    seek_pos: usize,
 };
 
 const Endpoint = @This();
+const Handle = fn (*Endpoint, *Allocator, []const u8) ?Response;
+const logger = std.log.scoped(.Endpoint);
 
-arena: Arena,
+allocator: *Allocator,
 dir: [:0]const u8,
-handleFn: fn (*Endpoint, []const u8) ?Response,
+handleFn: Handle,
 
-pub fn init(allocator: *std.mem.Allocator, dir: [:0]const u8) Endpoint {
+pub fn init(allocator: *Allocator, dir: [:0]const u8, handleFn: Handle) Endpoint {
     return Endpoint {
-        .arena = Arena.init(allocator),
+        .allocator = allocator,
         .dir = dir,
+        .handleFn = handleFn,
     };
 }
 
 pub fn deinit(self: *Endpoint) void {
-    self.arena.deinit();
+    
+}
+
+pub fn addToServer(self: *Endpoint, server: *zupnp.web.Server) !void {
+    var old_cookie: ?*c_void = undefined;
+    if (c.is_error(c.UpnpAddVirtualDir(self.dir, @ptrCast(*const c_void, self), &old_cookie))) |_| {
+        logger.err("Failed to add endpoint", .{});
+        return error.UPnPError;
+    }
+    if (old_cookie != null) {
+        return error.UPnPError;
+    }
 }
 
 pub fn getInfo(filename_c: [*c]const u8, info: ?*c.UpnpFileInfo, cookie: ?*const c_void, request_cookie: [*c]?*const c_void) callconv(.C) c_int {
@@ -37,16 +54,25 @@ pub fn getInfo(filename_c: [*c]const u8, info: ?*c.UpnpFileInfo, cookie: ?*const
     while (filename_c[filename.len] != 0) : (filename.len += 1) {}
 
     const self = mutate(*Endpoint, cookie);
-    if (self.handleFn(self, filename)) |response| {
-        const request = self.arena.allocator.create(Request) catch {
-            self.arena.deinit();
+    var arena = Arena.init(self.allocator);
+    if (self.handleFn(self, &arena.allocator, filename)) |response| {
+        const request = arena.allocator.create(Request) catch {
+            arena.deinit();
             return -1;
         };
-        request.response = response;
+        request.arena = arena;
+        request.contents = response.contents;
+        request.seek_pos = 0;
         request_cookie.* = request;
+
+        _ = c.UpnpFileInfo_set_ContentType(info, response.content_type);
+        _ = c.UpnpFileInfo_set_IsReadable(info, @boolToInt(response.is_readable));
+        _ = c.UpnpFileInfo_set_FileLength(info, @intCast(c_long, response.contents.len));
+
         return 0;
     }
-    self.arena.deinit();
+
+    arena.deinit();
     return -1;
 }
 
@@ -59,8 +85,8 @@ pub fn open(filename_c: [*c]const u8, mode: c.enum_UpnpOpenFileMode, cookie: ?*c
 
 pub fn read(file_handle: c.UpnpWebFileHandle, buf: [*c]u8, buflen: usize, cookie: ?*const c_void, request_cookie: ?*const c_void) callconv(.C) c_int {
     const request = mutate(*Request, request_cookie);
-    const bytes_written = std.math.max(buflen, request.response.contents.len - request.seek_pos);
-    std.mem.copy(u8, buf[0..request.seek_pos], request.response.contents[request.seek_pos..request.seek_pos + bytes_written]);
+    const bytes_written = std.math.max(buflen, request.contents.len - request.seek_pos);
+    std.mem.copy(u8, buf[0..buflen], request.contents[request.seek_pos..request.seek_pos + bytes_written]);
     return @intCast(c_int, bytes_written);
 }
 
@@ -68,7 +94,7 @@ pub fn seek(file_handle: c.UpnpWebFileHandle, offset: c.off_t, origin: c_int, co
     var request = mutate(*Request, request_cookie);
     request.seek_pos = @intCast(usize, offset + switch (origin) {
         c.SEEK_CUR => @intCast(c_long, request.seek_pos),
-        c.SEEK_END => @intCast(c_long, request.response.contents.len),
+        c.SEEK_END => @intCast(c_long, request.contents.len),
         c.SEEK_SET => 0,
         else => return -1
     });
@@ -76,8 +102,8 @@ pub fn seek(file_handle: c.UpnpWebFileHandle, offset: c.off_t, origin: c_int, co
 }
 
 pub fn close(file_handle: c.UpnpWebFileHandle, cookie: ?*const c_void, request_cookie: ?*const c_void) callconv(.C) c_int {
-    const self = mutate(*Endpoint, cookie);
-    self.arena.deinit();
+    var request = mutate(*Request, request_cookie);
+    request.arena.deinit();
     return 0;
 }
 
