@@ -1,3 +1,5 @@
+//! Parses an XML document to a struct of your choosing.
+
 const std = @import("std");
 const ArenaAllocator = std.heap.ArenaAllocator;
 const XML = @import("xml.zig");
@@ -17,6 +19,9 @@ pub fn deinit(self: *XMLParser) void {
     self.arena.deinit();
 }
 
+/// Parse XML document to a specified struct type.
+/// The resulting struct, and all its children, belong to this parser.
+/// Once you call `deinit()` on this parser, all results get invalidated.
 pub fn parseDocument(self: *XMLParser, comptime T: type, doc: XML.Document) !*T {
     var result = try self.arena.allocator.create(T);
     try self.traverseStruct(result, try doc.toNode());

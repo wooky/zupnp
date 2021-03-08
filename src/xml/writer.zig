@@ -1,3 +1,5 @@
+//! Converts any struct to an XML document.
+
 const std = @import("std");
 const ArenaAllocator = std.heap.ArenaAllocator;
 const XML = @import("xml.zig");
@@ -18,6 +20,8 @@ pub fn deinit(self: *XMLWriter) void {
     self.arena.deinit();
 }
 
+/// Convert a struct of your choosing to an XML document.
+/// The resulting document is fully owned by the caller, so call `deinit()` on it when you're done with it.
 pub fn writeStructToDocument(self: *XMLWriter, input: anytype) !XML.Document {
     self.doc = try XML.Document.new();
     try self.traverseStruct(&input, try self.doc.toNode());

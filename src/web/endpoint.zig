@@ -36,17 +36,6 @@ pub fn deinit(self: *Endpoint) void {
     
 }
 
-pub fn addToServer(self: *Endpoint, server: *zupnp.web.Server) !void {
-    var old_cookie: ?*c_void = undefined;
-    if (c.is_error(c.UpnpAddVirtualDir(self.dir, @ptrCast(*const c_void, self), &old_cookie))) |_| {
-        logger.err("Failed to add endpoint", .{});
-        return error.UPnPError;
-    }
-    if (old_cookie != null) {
-        return error.UPnPError;
-    }
-}
-
 pub fn getInfo(filename_c: [*c]const u8, info: ?*c.UpnpFileInfo, cookie: ?*const c_void, request_cookie: [*c]?*const c_void) callconv(.C) c_int {
     var filename: []const u8 = undefined;
     filename.ptr = filename_c;

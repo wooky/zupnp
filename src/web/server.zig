@@ -33,3 +33,14 @@ pub fn init(lib: *const zupnp.ZUPnP, allocator: *Allocator) !Server {
 pub fn deinit(self: *Server) void {
     self.allocator.free(self.base_url);
 }
+
+pub fn addEndpoint(self: *Server, endpoint: *const zupnp.web.Endpoint) !void {
+    var old_cookie: ?*c_void = undefined;
+    if (c.is_error(c.UpnpAddVirtualDir(endpoint.dir, @ptrCast(*const c_void, endpoint), &old_cookie))) |_| {
+        logger.err("Failed to add endpoint", .{});
+        return error.UPnPError;
+    }
+    if (old_cookie != null) {
+        return error.UPnPError;
+    }
+}
