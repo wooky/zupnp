@@ -26,7 +26,7 @@ pub fn init(lib: *const zupnp.ZUPnP, allocator: *Allocator) !Server {
     _ = c.UpnpVirtualDir_set_SeekCallback(zupnp.web.Endpoint.seek);
     _ = c.UpnpVirtualDir_set_CloseCallback(zupnp.web.Endpoint.close);
 
-    logger.notice("Server listening on {}", .{base_url});
+    logger.notice("Server listening on {s}", .{base_url});
     return Server { .allocator = allocator, .base_url = base_url };
 }
 

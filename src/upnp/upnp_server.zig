@@ -20,7 +20,7 @@ pub fn deinit(self: *UPnPServer) void {
 
 pub fn addDevice(self: *UPnPServer, device: *Device) !void {
     const udn = "udn:TODO";
-    const udn_url = try std.fmt.allocPrint(self.server.allocator, "{}{}", .{self.server.base_url, udn});
+    const udn_url = try std.fmt.allocPrint(self.server.allocator, "{s}{s}", .{self.server.base_url, udn});
     defer self.server.allocator.free(udn_url);
 
     var schema = try device.createSchema(udn, udn_url);
@@ -33,5 +33,5 @@ pub fn addDevice(self: *UPnPServer, device: *Device) !void {
     }
     
     if (c.UpnpSendAdvertisement(device.handle, 100) != c.UPNP_E_SUCCESS) return error.UPnPError;
-    logger.info("Added device {}", .{device.friendly_name});
+    logger.info("Added device {s}", .{device.friendly_name});
 }

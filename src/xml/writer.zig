@@ -35,7 +35,7 @@ pub fn handleSubStruct(self: *XMLWriter, comptime name: []const u8, input: anyty
         .Document => |d| try d.appendChild(sub_parent),
         .Element => |e| try e.appendChild(sub_parent),
         else => {
-            logger.warn("Invalid node type for node named {}", .{name});
+            logger.warn("Invalid node type for node named {s}", .{name});
             return Error;
         }
     }

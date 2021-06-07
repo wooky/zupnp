@@ -48,10 +48,10 @@ pub fn createSchema(self: *Device, udn: []const u8, udn_url: []const u8) !zupnp.
     for (self.services.items) |service, idx| {
         try schema_services.append(.{
             .serviceType = service.service_type,
-            .serviceId = try std.fmt.allocPrint(&arena.allocator, "{}", .{idx}),
-            .SCPDURL = try std.fmt.allocPrint(&arena.allocator, "{}/scpd/{}", .{udn_url, idx}),
-            .controlURL = try std.fmt.allocPrint(&arena.allocator, "{}/control/{}", .{udn_url, idx}),
-            .eventSubURL = try std.fmt.allocPrint(&arena.allocator, "{}/event/{}", .{udn_url, idx}),
+            .serviceId = try std.fmt.allocPrint(&arena.allocator, "{d}", .{idx}),
+            .SCPDURL = try std.fmt.allocPrint(&arena.allocator, "{s}/scpd/{d}", .{udn_url, idx}),
+            .controlURL = try std.fmt.allocPrint(&arena.allocator, "{s}/control/{d}", .{udn_url, idx}),
+            .eventSubURL = try std.fmt.allocPrint(&arena.allocator, "{s}/event/{d}", .{udn_url, idx}),
         });
     }
 
@@ -80,9 +80,9 @@ pub fn onEvent(event_type: c.Upnp_EventType, event: ?*const c_void, cookie: ?*c_
     var mut_event = @intToPtr(*c_void, @ptrToInt(event));
     switch (event_type) {
         c.Upnp_EventType.UPNP_CONTROL_ACTION_REQUEST =>
-            self.handleAction(@ptrCast(*c.UpnpActionRequest, mut_event)) catch |err| logger.err("{}", .{err}),
+            self.handleAction(@ptrCast(*c.UpnpActionRequest, mut_event)) catch |err| logger.err("{s}", .{err}),
         else =>
-            logger.info("Unexpected event type {}", .{@tagName(event_type)})
+            logger.info("Unexpected event type {s}", .{@tagName(event_type)})
     }
     return c.UPNP_E_SUCCESS;
 }
