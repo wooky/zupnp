@@ -1,6 +1,6 @@
 const c = @import("../c.zig");
 const std = @import("std");
-const zupnp = @import("../main.zig");
+const zupnp = @import("../lib.zig");
 const Device = zupnp.upnp.Device;
 
 const UPnPServer = @This();

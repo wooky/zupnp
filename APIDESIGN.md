@@ -1,38 +1,58 @@
 # API Redesign
-## zupnp.ZUPnP
-* server: zupnp.web.Server
+## [ ] zupnp.ZUPnP
+* pub server: zupnp.web.Server
+* pub device_manager: zupnp.upnp.DeviceManager
 * init(allocator: *Allocator, config: Config) !zupnp.ZUPnP
 * deinit(self) void
-* createDevice(self, T: type) !*T
-* registerDevice(self, device: *type) !void
 
-### zupnp.ZUPnP.Config
+### [X] zupnp.ZUPnP.Config
 * if_name: ?[]const u8 = null
 * port: u16 = 0
 
-## zupnp.web.Server
+## [X] zupnp.web.Server
 * pub static_root_dir: ?[:0]const u8 = null
 * endpoints: ArrayList(Endpoint)
 * init(allocator: *Allocator) zupnp.web.Server
 * deinit(self) void
-* createEndpoint(self, T: type, destination: []const u8) !*T
+* createEndpoint(self, T: type, config: type, destination: [:0]const u8) !*T
 * start(self) !void
 * stop(self) void
 * static methods from existing zupnp.web.Endpoint
 
-### zupnp.web.Server.Endpoint
+### [X] zupnp.web.Server.Endpoint
 * instance: *c_void
+* allocator: *Allocator
 * deinitFn: ?fn(instance: *c_void) void
 * getFn: ?fn(*c_void, *const zupnp.web.Request) zupnp.web.Response
-* postFn: ?fn(*c_void, *const zupnp.web.Request) zupnp.web.Response
+* postFn: ?fn(*c_void, *const zupnp.web.Request) bool
 
-## zupnp.web.Request
-Fill as needed
+## [X] zupnp.web.Request
+* allocator: *Allocator
+* filename: [:0]const u8
 
-## zupnp.web.Response
-Fill as needed
+## [X] zupnp.web.Response (union)
+* NotFound: void
+* Forbidden: void
+* Chunked: TODO callback to get chunked contents
+* OK: ```struct {
+    contents: [:0]const u8,
+    content_type: [:0]const u8,
+    extra_headers: TODO,
+  }```
 
-## zupnp.upnp.Action
+## [ ] zupnp.upnp.DeviceManager
+* devices: std.AutoHashMap(*c_void, Device)
+* init(allocator: *Allocator) @Self
+* deinit(self) void
+* create(self, T: type) !*T
+* register(self, device: *type) !void
+
+### [ ] zupnp.upnp.DeviceManager.Device
+* handle: *c.UpnpDevice_Handle
+* deinitFn: ?fn(*c_void) void
+* handleActionFn: ?fn(*c_void, *zupnp.upnp.Action) !void
+
+## [ ] zupnp.upnp.Action
 * allocator: *Allocator
 * request: *c.UpnpActionRequest
 * getServiceId(self) ?[:0]const u8
@@ -43,10 +63,10 @@ Fill as needed
 
 # Abstract File Requirements
 ## Endpoint
-* init(allocator: *Allocator) !@Self
+* prepare(self, config: type) !void (optional)
 * deinit(instance: *c_void) void (optional)
-* get(instance: *c_void, request: *zupnp.web.Request) zupnp.web.Response (optional)
-* post(instance: *c_void, request: *zupnp.web.Request) zupnp.web.Response (optional)
+* get(instance: *c_void, request: *const zupnp.web.Request) zupnp.web.Response (optional)
+* post(instance: *c_void, request: *const zupnp.web.Request) bool (optional)
 
 ## Device
 * pub schema: (any struct)
