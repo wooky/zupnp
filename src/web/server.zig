@@ -13,8 +13,8 @@ const Endpoint = struct {
     instance: *c_void,
     allocator: *Allocator,
     deinitFn: ?fn(*c_void) void,
-    getFn: ?fn(*c_void, *const zupnp.web.Request) zupnp.web.Response,
-    postFn: ?fn(*c_void, *const zupnp.web.Request) bool,
+    getFn: ?fn(*c_void, *const zupnp.web.ServerRequest) zupnp.web.ServerResponse,
+    postFn: ?fn(*c_void, *const zupnp.web.ServerRequest) bool,
 };
 
 const RequestCookie = struct {
@@ -86,7 +86,7 @@ pub fn start(self: *Server) !void {
     if (err != c.UPNP_E_SUCCESS) {
         return Error;
     }
-    logger.notice("Started listening on {s}:{d}", .{
+    logger.notice("Started listening on http://{s}:{d}", .{
         c.UpnpGetServerIpAddress(),
         c.UpnpGetServerPort()
     });
@@ -108,7 +108,7 @@ fn getInfo(filename_c: [*c]const u8, info: ?*c.UpnpFileInfo, cookie: ?*const c_v
     while (filename_c[filename.len] != 0) : (filename.len += 1) {}
     
     var arena = ArenaAllocator.init(endpoint.allocator);
-    const request = zupnp.web.Request {
+    const request = zupnp.web.ServerRequest {
         .allocator = &arena.allocator,
         .filename = filename,
     };
@@ -121,13 +121,15 @@ fn getInfo(filename_c: [*c]const u8, info: ?*c.UpnpFileInfo, cookie: ?*const c_v
         .NotFound => return_code = -1,
         .Forbidden => is_readable = false,
         .Chunked => {},
-        .OK => |ok| blk: {
+        .Contents => |cnt| blk: {
             req_cookie = arena.allocator.create(RequestCookie) catch break :blk;
             req_cookie.?.arena = arena;
-            req_cookie.?.contents = ok.contents;
+            req_cookie.?.contents = cnt.contents;
             req_cookie.?.seek_pos = 0;
-            _ = c.UpnpFileInfo_set_ContentType(info, ok.content_type);
-            _ = c.UpnpFileInfo_set_FileLength(info, @intCast(c_long, ok.contents.len));
+            if (cnt.content_type) |content_type| {
+                _ = c.UpnpFileInfo_set_ContentType(info, content_type);
+            }
+            _ = c.UpnpFileInfo_set_FileLength(info, @intCast(c_long, cnt.contents.len));
         }
     }
 

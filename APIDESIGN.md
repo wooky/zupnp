@@ -23,22 +23,54 @@
 * instance: *c_void
 * allocator: *Allocator
 * deinitFn: ?fn(instance: *c_void) void
-* getFn: ?fn(*c_void, *const zupnp.web.Request) zupnp.web.Response
-* postFn: ?fn(*c_void, *const zupnp.web.Request) bool
+* getFn: ?fn(*c_void, *const zupnp.web.ServerRequest) zupnp.web.ServerResponse
+* postFn: ?fn(*c_void, *const zupnp.web.ServerRequest) bool
 
-## [X] zupnp.web.Request
+## [X] zupnp.web.ServerRequest
 * allocator: *Allocator
 * filename: [:0]const u8
 
-## [X] zupnp.web.Response (union)
+## [X] zupnp.web.ServerResponse (union)
 * NotFound: void
 * Forbidden: void
 * Chunked: TODO callback to get chunked contents
-* OK: ```struct {
-    contents: [:0]const u8,
-    content_type: [:0]const u8,
-    extra_headers: TODO,
-  }```
+* Contents: zupnp.web.HttpContents
+
+## [ ] zupnp.web.Client
+* pub timeout: ?c_int = null
+* pub keepalive: bool = false
+* handle: *c_void
+* init(allocator: *Allocator) zupnp.web.Client
+* deinit(self) void
+* request(self, method: zupnp.web.Method, url: [:0]const u8, request: zupnp.web.HttpContents) !zupnp.web.ClientResponse
+* chunkedRequest(self, method: zupnp.web.Method, url: [:0]const u8, request: zupnp.web.HttpContents) !zupnp.web.ChunkedClientResponse
+* close(self) void
+
+## [ ] zupnp.web.Method (enum)
+* PUT = 0
+* DELETE = 1
+* GET = 2
+* HEAD = 3
+* POST = 4
+
+## [X] zupnp.web.HttpContents
+* headers: [][]const u8 = [_] {}
+* content_type: ?[:0]const u8 = null
+* contents: []const u8 = ""
+
+## [X] zupnp.web.ClientResponse
+* http_status: c_int
+* content_type: [:0]const u8
+* contents: [:0]const u8
+
+# [ ] zupnp.web.ChunkedClientResponse
+* pub http_status: c_int
+* pub content_type: [:0]const u8
+* pub content_length: isize
+* handle: *c_void
+* content_buffer: [1024]const u8
+* readChunk(self) ?[]const u8
+* cancel(self) void
 
 ## [ ] zupnp.upnp.DeviceManager
 * devices: std.AutoHashMap(*c_void, Device)
