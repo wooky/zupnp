@@ -36,17 +36,17 @@
 * Chunked: TODO callback to get chunked contents
 * Contents: zupnp.web.HttpContents
 
-## [ ] zupnp.web.Client
+## [X] zupnp.web.Client
 * pub timeout: ?c_int = null
 * pub keepalive: bool = false
-* handle: *c_void
-* init(allocator: *Allocator) zupnp.web.Client
+* handle: ?*c_void = null
+* init() zupnp.web.Client
 * deinit(self) void
-* request(self, method: zupnp.web.Method, url: [:0]const u8, request: zupnp.web.HttpContents) !zupnp.web.ClientResponse
+* request(self, allocator: *Allocator, method: zupnp.web.Method, url: [:0]const u8, request: zupnp.web.HttpContents) !zupnp.web.ClientResponse
 * chunkedRequest(self, method: zupnp.web.Method, url: [:0]const u8, request: zupnp.web.HttpContents) !zupnp.web.ChunkedClientResponse
 * close(self) void
 
-## [ ] zupnp.web.Method (enum)
+## [X] zupnp.web.Method (enum)
 * PUT = 0
 * DELETE = 1
 * GET = 2
@@ -63,13 +63,13 @@
 * content_type: [:0]const u8
 * contents: [:0]const u8
 
-# [ ] zupnp.web.ChunkedClientResponse
+# [X] zupnp.web.ChunkedClientResponse
 * pub http_status: c_int
 * pub content_type: [:0]const u8
 * pub content_length: isize
 * handle: *c_void
-* content_buffer: [1024]const u8
-* readChunk(self) ?[]const u8
+* keepalive: bool
+* readChunk(self, buf: []u8) !bool
 * cancel(self) void
 
 ## [ ] zupnp.upnp.DeviceManager

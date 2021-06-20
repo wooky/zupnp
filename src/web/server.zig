@@ -5,9 +5,7 @@ const c = @import("../c.zig");
 const zupnp = @import("../lib.zig");
 
 const Server = @This();
-const logger = std.log.scoped(.Server);
-
-pub const Error = error.UPnPError;
+const logger = std.log.scoped(.@"zupnp.web.Server");
 
 const Endpoint = struct {
     instance: *c_void,
@@ -68,10 +66,10 @@ pub fn createEndpoint(self: *Server, comptime T: type, config: anytype, destinat
     var old_cookie: ?*c_void = undefined;
     if (c.is_error(c.UpnpAddVirtualDir(destination, @ptrCast(*const c_void, &self.endpoints.items[self.endpoints.items.len - 1]), &old_cookie))) |_| {
         logger.err("Failed to add endpoint", .{});
-        return error.UPnPError;
+        return zupnp.Error;
     }
     if (old_cookie != null) {
-        return error.UPnPError;
+        return zupnp.Error;
     }
 
     return instance;
@@ -83,8 +81,8 @@ pub fn start(self: *Server) !void {
     else
         c.UpnpEnableWebserver(1)
     ;
-    if (err != c.UPNP_E_SUCCESS) {
-        return Error;
+    if (c.is_error(err)) |_| {
+        return zupnp.Error;
     }
     logger.notice("Started listening on http://{s}:{d}", .{
         c.UpnpGetServerIpAddress(),
