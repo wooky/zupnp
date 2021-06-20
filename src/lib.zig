@@ -9,6 +9,8 @@ pub const ZUPnP = struct {
     const std = @import("std");
     const Allocator = std.mem.Allocator;
 
+    const logger = std.log.scoped(.@"zupnp.Zupnp");
+
     pub const Config = struct {
         if_name: ?[:0]const u8 = null,
         port: u16 = 0,
@@ -18,9 +20,11 @@ pub const ZUPnP = struct {
     server: web.Server,
 
     pub fn init(allocator: *Allocator, config: Config) !ZUPnP {
-        if (c.UpnpInit2(config.if_name orelse null, config.port) != c.UPNP_E_SUCCESS) {
+        if (c.is_error(c.UpnpInit2(config.if_name orelse null, config.port))) |err| {
+            logger.err("Failed to initialize library: {s}", .{err});
             return error.UPnPError;
         }
+        // TODO in future releases of pupnp, call UpnpSetLogCallback to redirect logger calls to Zig's logger
         return ZUPnP {
             .allocator = allocator,
             .server = web.Server.init(allocator),

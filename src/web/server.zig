@@ -26,11 +26,13 @@ endpoints: std.ArrayList(Endpoint),
 static_root_dir: ?[:0]const u8 = null,
 
 pub fn init(allocator: *Allocator) Server {
-    _ = c.UpnpVirtualDir_set_GetInfoCallback(getInfo);
-    _ = c.UpnpVirtualDir_set_OpenCallback(open);
-    _ = c.UpnpVirtualDir_set_ReadCallback(read);
-    _ = c.UpnpVirtualDir_set_SeekCallback(seek);
-    _ = c.UpnpVirtualDir_set_CloseCallback(close);
+    logger.debug("Callback init: GetInfo {d}; Open {d}; Read {d}; Seek {d}; Close {d}", .{
+        c.UpnpVirtualDir_set_GetInfoCallback(getInfo),
+        c.UpnpVirtualDir_set_OpenCallback(open),
+        c.UpnpVirtualDir_set_ReadCallback(read),
+        c.UpnpVirtualDir_set_SeekCallback(seek),
+        c.UpnpVirtualDir_set_CloseCallback(close),
+    });
 
     return Server {
         .allocator = allocator,
@@ -64,24 +66,26 @@ pub fn createEndpoint(self: *Server, comptime T: type, config: anytype, destinat
     errdefer { _ = self.endpoints.pop(); }
 
     var old_cookie: ?*c_void = undefined;
-    if (c.is_error(c.UpnpAddVirtualDir(destination, @ptrCast(*const c_void, &self.endpoints.items[self.endpoints.items.len - 1]), &old_cookie))) |_| {
-        logger.err("Failed to add endpoint", .{});
+    if (c.is_error(c.UpnpAddVirtualDir(destination, @ptrCast(*const c_void, &self.endpoints.items[self.endpoints.items.len - 1]), &old_cookie))) |err| {
+        logger.err("Failed to add endpoint: {s}", .{err});
         return zupnp.Error;
     }
     if (old_cookie != null) {
         return zupnp.Error;
     }
 
+    logger.info("Added endpoint {s}", .{destination});
     return instance;
 }
 
 pub fn start(self: *Server) !void {
-    const err = if (self.static_root_dir) |srd|
+    const err_code = if (self.static_root_dir) |srd|
         c.UpnpSetWebServerRootDir(srd)
     else
         c.UpnpEnableWebserver(1)
     ;
-    if (c.is_error(err)) |_| {
+    if (c.is_error(err_code)) |err| {
+        logger.err("Failed to start server: {s}", .{err});
         return zupnp.Error;
     }
     logger.notice("Started listening on http://{s}:{d}", .{
@@ -92,18 +96,21 @@ pub fn start(self: *Server) !void {
 
 pub fn stop(self: *Server) void {
     c.UpnpSetWebServerRootDir(null);
+    logger.notice("Stopped listening", .{});
 }
 
 fn getInfo(filename_c: [*c]const u8, info: ?*c.UpnpFileInfo, cookie: ?*const c_void, request_cookie: [*c]?*const c_void) callconv(.C) c_int {
-    const endpoint = fetchEndpoint(cookie);
-    if (endpoint.getFn == null) {
-        return -1;
-    }
-
     var filename: [:0]const u8 = undefined;
     filename.ptr = filename_c;
     filename.len = 0;
     while (filename_c[filename.len] != 0) : (filename.len += 1) {}
+    logger.debug("GET {s}", .{filename});
+
+    const endpoint = fetchEndpoint(cookie);
+    if (endpoint.getFn == null) {
+        logger.debug("No endpoint defined for {s}", .{filename});
+        return -1;
+    }
     
     var arena = ArenaAllocator.init(endpoint.allocator);
     const request = zupnp.web.ServerRequest {
@@ -125,13 +132,13 @@ fn getInfo(filename_c: [*c]const u8, info: ?*c.UpnpFileInfo, cookie: ?*const c_v
             req_cookie.?.contents = cnt.contents;
             req_cookie.?.seek_pos = 0;
             if (cnt.content_type) |content_type| {
-                _ = c.UpnpFileInfo_set_ContentType(info, content_type);
+                logger.debug("ContentType err {d}", .{c.UpnpFileInfo_set_ContentType(info, content_type)});
             }
-            _ = c.UpnpFileInfo_set_FileLength(info, @intCast(c_long, cnt.contents.len));
+            logger.debug("FileLength err {d}", .{c.UpnpFileInfo_set_FileLength(info, @intCast(c_long, cnt.contents.len))});
         }
     }
 
-    _ = c.UpnpFileInfo_set_IsReadable(info, @boolToInt(is_readable));
+    logger.debug("IsReadable err {d}", .{c.UpnpFileInfo_set_IsReadable(info, @boolToInt(is_readable))});
 
     if (req_cookie) |rc| {
         request_cookie.* = rc;
@@ -144,15 +151,17 @@ fn getInfo(filename_c: [*c]const u8, info: ?*c.UpnpFileInfo, cookie: ?*const c_v
 }
 
 fn open(filename_c: [*c]const u8, mode: c.enum_UpnpOpenFileMode, cookie: ?*const c_void, request_cookie: ?*const c_void) callconv(.C) c.UpnpWebFileHandle {
-    const request = fetchRequestCookie(request_cookie);
-    const endpoint = fetchEndpoint(cookie);
-
     // UPNP_READ (i.e. GET) was already handled under get_info
-    if (mode == .UPNP_WRITE and endpoint.postFn == null) {
-        request.arena.deinit();
-        return null;
+
+    if (mode == .UPNP_WRITE) {
+        const endpoint = fetchEndpoint(cookie);
+        if (endpoint.postFn == null) {
+            const request = fetchRequestCookie(request_cookie);
+            request.arena.deinit();
+            return null;
+        }
     }
-    return undefined;
+    return undefined; // TODO replace with defined non-null memory location
 }
 
 fn read(file_handle: c.UpnpWebFileHandle, buf: [*c]u8, buflen: usize, cookie: ?*const c_void, request_cookie: ?*const c_void) callconv(.C) c_int {

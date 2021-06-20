@@ -10,7 +10,7 @@ pub const Handle = struct {
 
     pub fn close(self: *Handle) void {
         if (self.handle) |handle| {
-            _ = c.UpnpCloseHttpConnection(handle);
+            logger.debug("Close err {d}", .{c.UpnpCloseHttpConnection(handle)});
             self.handle = null;
         }
     }
@@ -49,32 +49,34 @@ pub fn request(self: *Client, allocator: *std.mem.Allocator, method: zupnp.web.M
 pub fn chunkedRequest(self: *Client, method: zupnp.web.Method, url: [:0]const u8, client_request: zupnp.web.HttpContents) !zupnp.web.ChunkedClientResponse {
     const timeout = self.timeout orelse -1;
     if (c.is_error(c.UpnpOpenHttpConnection(url, &self.handle.handle, timeout))) |err| {
-        logger.err("Failed opening HTTP connection: error {d}", .{err});
+        logger.err("Failed opening HTTP connection: {s}", .{err});
         return zupnp.Error;
     }
     errdefer self.handle.close();
 
-    if (c.is_error(c.UpnpMakeHttpRequest(method.toUpnpMethod(), url, self.handle.handle, null, client_request.content_type orelse null, @intCast(c_int, client_request.contents.len), timeout))) |_| {
-        logger.err("Failed making request to HTTP endpoint", .{});
+    if (c.is_error(c.UpnpMakeHttpRequest(method.toUpnpMethod(), url, self.handle.handle, null, client_request.content_type orelse null, @intCast(c_int, client_request.contents.len), timeout))) |err| {
+        logger.err("Failed making request to HTTP endpoint: {s}", .{err});
         return zupnp.Error;
     }
 
-    const contents = @intToPtr([*c]u8, @ptrToInt(client_request.contents.ptr));
-    if (client_request.contents.len > 0 and c.is_error(c.UpnpWriteHttpRequest(self.handle.handle, contents, client_request.contents.len, timeout)) != null) {
-        logger.err("Failed writing HTTP contents to endpoint", .{});
-        return zupnp.Error;
+    if (client_request.contents.len > 0) {
+        const contents = @intToPtr([*c]u8, @ptrToInt(client_request.contents.ptr));
+        if (c.is_error(c.UpnpWriteHttpRequest(self.handle.handle, contents, client_request.contents.len, timeout))) |err| {
+            logger.err("Failed writing HTTP contents to endpoint: {s}", .{err});
+            return zupnp.Error;
+        }
     }
 
-    if (c.is_error(c.UpnpEndHttpRequest(self.handle.handle, timeout))) |_| {
-        logger.err("Failed finalizing HTTP contents to endpoint", .{});
+    if (c.is_error(c.UpnpEndHttpRequest(self.handle.handle, timeout))) |err| {
+        logger.err("Failed finalizing HTTP contents to endpoint: {s}", .{err});
         return zupnp.Error;
     }
 
     var http_status: c_int = undefined;
     var content_type: [*c]u8 = undefined;
     var content_length: c_int = undefined;
-    if (c.is_error(c.UpnpGetHttpResponse(self.handle.handle, null, &content_type, &content_length, &http_status, timeout))) |_| {
-        logger.err("Failed getting HTTP response", .{});
+    if (c.is_error(c.UpnpGetHttpResponse(self.handle.handle, null, &content_type, &content_length, &http_status, timeout))) |err| {
+        logger.err("Failed getting HTTP response: {s}", .{err});
         return zupnp.Error;
     }
     var content_type_slice: [:0]const u8 = undefined;

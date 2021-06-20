@@ -15,7 +15,7 @@ handle: *zupnp.web.Client.Handle,
 pub fn readChunk(self: *ChunkedClientResponse, buf: []u8) !?[]const u8 {
     var size = buf.len;
     if (c.is_error(c.UpnpReadHttpResponse(self.handle.handle, buf.ptr, &size, self.timeout))) |err| {
-        logger.err("Failed reading HTTP response: error {d}", .{err});
+        logger.err("Failed reading HTTP response: {s}", .{err});
         return zupnp.Error;
     }
     if (size == 0) {
@@ -26,7 +26,7 @@ pub fn readChunk(self: *ChunkedClientResponse, buf: []u8) !?[]const u8 {
 }
 
 pub fn cancel(self: *ChunkedClientResponse) void {
-    _ = c.UpnpCancelHttpGet(self.handle.handle);
+    logger.debug("Cancel err {d}", .{c.UpnpCancelHttpGet(self.handle.handle)});
     // if (!self.keepalive) {
         self.handle.close();
     // }
