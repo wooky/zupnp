@@ -1,18 +1,17 @@
 const std = @import("std");
-const Node = @import("xml.zig").Node;
+const xml = @import("../lib.zig").xml;
 
 const attributes_field_name = "__attributes__";
-const logger = std.log.scoped(.XMLTraverser);
 
-pub fn XMLStructTraverser(comptime Self: type, comptime Error: anyerror) type {
+pub fn StructTraverser(comptime Self: type, comptime logger: type) type {
     return struct {
-        pub fn traverseStruct(self: *Self, input: anytype, parent: Node) !void {
+        pub fn traverseStruct(self: *Self, input: anytype, parent: xml.Node) !void {
             inline for (@typeInfo(@TypeOf(input.*)).Struct.fields) |field| {
                 try self.traverseField(&@field(input, field.name), field.name, parent);
             }
         }
 
-        pub fn traverseField(self: *Self, input: anytype, comptime name: []const u8, parent: Node) !void {
+        pub fn traverseField(self: *Self, input: anytype, comptime name: []const u8, parent: xml.Node) !void {
             switch (@typeInfo(@TypeOf(input.*))) {
                 .Struct => |s|
                     if (comptime std.mem.eql(u8, name, attributes_field_name)) {

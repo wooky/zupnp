@@ -2,7 +2,7 @@ const std = @import("std");
 const testing = std.testing;
 const Document = @import("zupnp").xml.Document;
 
-test "writing XML" {
+test "encoding to XML" {
     var doc = try Document.new();
     defer doc.deinit();
 
@@ -61,44 +61,44 @@ test "writing XML" {
 
     var string = try doc.toString();
     defer string.deinit();
-    testing.expectEqualSlices(u8, @embedFile("full.xml"), string.string);
+    try testing.expectEqualSlices(u8, @embedFile("full.xml"), string.string);
 }
 
-test "parsing XML" {
+test "decoding from XML" {
     var doc = try Document.fromString(@embedFile("full.xml"));
     defer doc.deinit();
 
     const root = (try doc.getElementsByTagName("root").getSingleItem()).Element;
 
     const element1 = (try root.getElementsByTagName("element1").getSingleItem()).Element;
-    testing.expectEqualSlices(u8, "hello", element1.getAttribute("attr1").?);
-    testing.expectEqualSlices(u8, "world", element1.getAttribute("attr2").?);
-    testing.expect(element1.getAttribute("bogus") == null);
+    try testing.expectEqualSlices(u8, "hello", element1.getAttribute("attr1").?);
+    try testing.expectEqualSlices(u8, "world", element1.getAttribute("attr2").?);
+    try testing.expect(element1.getAttribute("bogus") == null);
 
     const child1 = (try element1.getElementsByTagName("child1").getSingleItem()).Element;
     const child1_text = (try child1.getFirstChild()).?.TextNode;
-    testing.expectEqualSlices(u8, "I am required", child1_text.getValue());
+    try testing.expectEqualSlices(u8, "I am required", child1_text.getValue());
 
     const bogus_children = element1.getElementsByTagName("bogus");
-    testing.expectEqual(@as(usize, 0), bogus_children.getLength());
+    try testing.expectEqual(@as(usize, 0), bogus_children.getLength());
 
     const element2 = (try root.getElementsByTagName("element2").getSingleItem()).Element;
 
     const child2 = (try element2.getElementsByTagName("child2").getSingleItem()).Element;
     const child2_text = (try child2.getFirstChild()).?.TextNode;
-    testing.expectEqualSlices(u8, "I am optional", child2_text.getValue());
+    try testing.expectEqualSlices(u8, "I am optional", child2_text.getValue());
 
     var repeated_iter = element2.getElementsByTagName("repeated").iterator();
 
     const repeated1 = (try repeated_iter.next()).?.Element;
     const anotherone1 = (try repeated1.getElementsByTagName("anotherone").getSingleItem()).Element;
     const anotherone1_text = (try anotherone1.getFirstChild()).?.TextNode;
-    testing.expectEqualSlices(u8, "Another one", anotherone1_text.getValue());
+    try testing.expectEqualSlices(u8, "Another one", anotherone1_text.getValue());
 
     const repeated2 = (try repeated_iter.next()).?.Element;
     const anotherone2 = (try repeated2.getElementsByTagName("anotherone").getSingleItem()).Element;
     const anotherone2_text = (try anotherone2.getFirstChild()).?.TextNode;
-    testing.expectEqualSlices(u8, "Another two", anotherone2_text.getValue());
+    try testing.expectEqualSlices(u8, "Another two", anotherone2_text.getValue());
 
-    testing.expect((try repeated_iter.next()) == null);
+    try testing.expect((try repeated_iter.next()) == null);
 }

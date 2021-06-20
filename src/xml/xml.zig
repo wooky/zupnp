@@ -1,9 +1,9 @@
 const c = @import("../c.zig");
 const std = @import("std");
+const xml = @import("../lib.zig").xml;
 const ArenaAllocator = std.heap.ArenaAllocator;
-const Error = error.XMLError;
 
-const logger = std.log.scoped(.XML);
+const logger = std.log.scoped(.@"zupnp.xml");
 
 fn AbstractNode(comptime NodeType: type) type {
     return struct {
@@ -45,8 +45,9 @@ pub const Node = union(enum) {
             c.eELEMENT_NODE => Node { .Element = Element.init(@ptrCast(*c.IXML_Element, handle)) },
             c.eTEXT_NODE => Node { .TextNode = TextNode.init(handle) },
             else => |node_type| {
-                logger.err("Unhandled XML node type {}", .{@intToEnum(c.IXML_NODE_TYPE, node_type)});
-                return Error;
+                // TODO convert node_type to c.IXML_NODE_TYPE to string
+                logger.err("Unhandled XML node type {d}", .{node_type});
+                return xml.Error;
             }
         };
     }
@@ -106,7 +107,7 @@ pub const Document = struct {
             return DOMString.init(cStringToSlice(string));
         }
         logger.err("Failed to render document to string", .{});
-        return Error;
+        return xml.Error;
     }
 };
 
@@ -196,18 +197,18 @@ pub const NodeList = struct {
                 return try Node.fromHandle(item_handle);
             }
             logger.err("Cannot query node list item", .{});
-            return Error;
+            return xml.Error;
         }
         logger.err("Cannot query empty node list", .{});
-        return Error;
+        return xml.Error;
     }
 
     /// Asserts that this list has one item, then retrieves it.
     pub fn getSingleItem(self: *const NodeList) !Node {
         const length = self.getLength();
         if (length != 1) {
-            logger.warn("Node list expected to have 1 item, actual {}", .{length});
-            return Error;
+            logger.warn("Node list expected to have 1 item, actual {d}", .{length});
+            return xml.Error;
         }
         return self.getItem(0);
     }
@@ -278,8 +279,9 @@ pub const DOMString = struct {
 
 fn check(err: c_int, comptime message: []const u8, comptime severity: []const u8) !void {
     if (err != c.IXML_SUCCESS) {
-        @field(logger, severity)(message ++ ": {}", .{@intToEnum(c.IXML_ERRORCODE, err)});
-        return Error;
+        // TODO convert err to c.IXML_ERRORCODE to string
+        @field(logger, severity)(message ++ ": {d}", .{err});
+        return xml.Error;
     }
 }
 

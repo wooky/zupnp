@@ -1,6 +1,6 @@
 const std = @import("std");
 const testing = std.testing;
-const Writer = @import("zupnp").xml.Writer;
+const xml = @import("zupnp").xml;
 
 const Repeated = struct {
     anotherone: []const u8,
@@ -44,14 +44,12 @@ test "full structure" {
             },
         },
     };
-    var writer = Writer.init(testing.allocator);
-    defer writer.deinit();
-    var doc = try writer.writeStructToDocument(input);
+    var doc = try xml.encode(testing.allocator, input);
     defer doc.deinit();
     var result = try doc.toString();
     defer result.deinit();
 
     var buf: [512]u8 = undefined;
     const expected_xml = @embedFile("full.xml");
-    testing.expectEqualSlices(u8, expected_xml, result.string);
+    try testing.expectEqualSlices(u8, expected_xml, result.string);
 }

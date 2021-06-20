@@ -1,49 +1,57 @@
-//! Parses an XML document to a struct of your choosing.
-
 const std = @import("std");
 const ArenaAllocator = std.heap.ArenaAllocator;
-const XML = @import("xml.zig");
-const Error = error.XMLParseError;
+const xml = @import("../lib.zig").xml;
 
-const XMLParser = @This();
-const logger = std.log.scoped(.XMLParser);
-usingnamespace @import("traverser.zig").XMLStructTraverser(XMLParser, Error);
+const Parser = @This();
+const logger = std.log.scoped(.@"zupnp.xml.Parser");
+usingnamespace @import("traverser.zig").StructTraverser(Parser, logger);
+
+pub fn DecodeResult(comptime T: type) type {
+    return struct {
+        result: *T,
+        arena: ArenaAllocator,
+
+        pub fn deinit(self: *@This()) void {
+            self.arena.deinit();
+        }
+    };
+}
 
 arena: ArenaAllocator,
 
-pub fn init(allocator: *std.mem.Allocator) XMLParser {
+pub fn init(allocator: *std.mem.Allocator) Parser {
     return .{ .arena = ArenaAllocator.init(allocator) };
 }
 
-pub fn deinit(self: *XMLParser) void {
+pub fn cleanup(self: *Parser) void {
     self.arena.deinit();
 }
 
-/// Parse XML document to a specified struct type.
-/// The resulting struct, and all its children, belong to this parser.
-/// Once you call `deinit()` on this parser, all results get invalidated.
-pub fn parseDocument(self: *XMLParser, comptime T: type, doc: XML.Document) !*T {
+pub fn parseDocument(self: *Parser, comptime T: type, doc: xml.Document) !DecodeResult(T) {
     var result = try self.arena.allocator.create(T);
     try self.traverseStruct(result, try doc.toNode());
-    return result;
+    return DecodeResult(T) {
+        .result = result,
+        .arena = self.arena,
+    };
 }
 
-pub fn handleSubStruct(self: *XMLParser, comptime name: []const u8, input: anytype, parent: XML.Node) !void {
+pub fn handleSubStruct(self: *Parser, comptime name: []const u8, input: anytype, parent: xml.Node) !void {
     var child = switch (parent) {
         .Document => |d| d.getElementsByTagName(name ++ "\x00"),
         .Element => |e| e.getElementsByTagName(name ++ "\x00"),
         else => {
-            logger.warn("Invalid type for node named {}", .{name});
-            return Error;
+            logger.warn("Invalid type for node named {s}", .{name});
+            return xml.Error;
         }
     }.getSingleItem() catch {
-        logger.warn("Missing element {}", .{name});
-        return Error;
+        logger.warn("Missing element {s}", .{name});
+        return xml.Error;
     };
     try self.traverseStruct(input, child);
 }
 
-pub fn handlePointer(self: *XMLParser, comptime name: []const u8, input: anytype, parent: XML.Element) !void {
+pub fn handlePointer(self: *Parser, comptime name: []const u8, input: anytype, parent: xml.Element) !void {
     const PointerChild = @typeInfo(@TypeOf(input.*)).Pointer.child;
     var iterator = parent.getElementsByTagName(name ++ "\x00").iterator();
     if (iterator.length > 0) {
@@ -58,7 +66,7 @@ pub fn handlePointer(self: *XMLParser, comptime name: []const u8, input: anytype
     }
 }
 
-pub fn handleOptional(self: *XMLParser, comptime name: []const u8, input: anytype, parent: XML.Element) !void {
+pub fn handleOptional(self: *Parser, comptime name: []const u8, input: anytype, parent: xml.Element) !void {
     const list = parent.getElementsByTagName(name ++ "\x00");
     switch (list.getLength()) {
         1 => {
@@ -68,31 +76,31 @@ pub fn handleOptional(self: *XMLParser, comptime name: []const u8, input: anytyp
         },
         0 => input.* = null,
         else => |l| {
-            logger.warn("Expecting 0 or 1 {} elements, found {}", .{name, l});
-            return Error;
+            logger.warn("Expecting 0 or 1 {s} elements, found {d}", .{name, l});
+            return xml.Error;
         }
     }
 }
 
-pub fn handleString(self: *XMLParser, comptime name: []const u8, input: anytype, parent: XML.Element) !void {
+pub fn handleString(self: *Parser, comptime name: []const u8, input: anytype, parent: xml.Element) !void {
     var element = parent.getElementsByTagName(name ++ "\x00").getSingleItem() catch {
-        logger.warn("Missing element {}", .{name});
-        return Error;
+        logger.warn("Missing element {s}", .{name});
+        return xml.Error;
     };
     var text_node = (try element.Element.getFirstChild()) orelse {
-        logger.warn("Text element {} has no text", .{name});
-        return Error;
+        logger.warn("Text element {s} has no text", .{name});
+        return xml.Error;
     };
     switch (text_node) {
         .TextNode => |tn| input.* = try self.arena.allocator.dupe(u8, tn.getValue()),
         else => {
-            logger.warn("Element {} is not a text element", .{name});
-            return Error;
+            logger.warn("Element {s} is not a text element", .{name});
+            return xml.Error;
         }
     }
 }
 
-pub fn handleAttributes(self: *XMLParser, comptime name: []const u8, input: anytype, parent: XML.Element) !void {
+pub fn handleAttributes(self: *Parser, comptime name: []const u8, input: anytype, parent: xml.Element) !void {
     var attributes = parent.getAttributes();
     inline for (@typeInfo(@TypeOf(input.*)).Struct.fields) |field| {
         const value = blk: {
@@ -101,7 +109,7 @@ pub fn handleAttributes(self: *XMLParser, comptime name: []const u8, input: anyt
         };
         @field(input, field.name) = switch (field.field_type) {
             ?[]const u8, ?[]u8 => value,
-            []const u8, []u8 => value orelse return Error,
+            []const u8, []u8 => value orelse return xml.Error,
             else => @compileError("Invalid field '" ++ field.name ++ "' for attribute struct")
         };
     }
