@@ -53,6 +53,16 @@ pub fn handleString(self: *Writer, comptime name: []const u8, input: anytype, pa
     try parent.appendChild(text);
 }
 
+pub fn handleInt(self: *Writer, comptime name: []const u8, input: anytype, parent: xml.Element) !void {
+    var text = try self.doc.createTextNode(try std.fmt.allocPrintZ(&self.arena.allocator, "{d}", .{input.*}));
+    try parent.appendChild(text);
+}
+
+pub fn handleBool(self: *Writer, comptime name: []const u8, input: anytype, parent: xml.Element) !void {
+    var text = try self.doc.createTextNode(if (input.*) "true" else "false");
+    try parent.appendChild(text);
+}
+
 pub fn handleAttributes(self: *Writer, input: anytype, parent: xml.Element) !void {
     inline for (@typeInfo(@TypeOf(input.*)).Struct.fields) |field| {
         const field_value_opt: ?[]const u8 = @field(input.*, field.name);

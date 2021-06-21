@@ -96,6 +96,26 @@ pub fn handleString(self: *Parser, comptime name: []const u8, input: anytype, pa
     }
 }
 
+pub fn handleInt(self: *Parser, comptime name: []const u8, input: anytype, parent: xml.Element) !void {
+    input.* = try std.fmt.parseInt(@TypeOf(input.*), try getTextNode(name, input, parent), 0);
+}
+
+pub fn handleBool(self: *Parser, comptime name: []const u8, input: anytype, parent: xml.Element) !void {
+    const maybe_bool = try getTextNode(name, input, parent);
+    var actual_bool: bool = undefined;
+    if (std.ascii.eqlIgnoreCase(maybe_bool, "true") or std.mem.eql(u8, maybe_bool, "1")) {
+        actual_bool = true;
+    }
+    else if (std.ascii.eqlIgnoreCase(maybe_bool, "false") or std.mem.eql(u8, maybe_bool, "0")) {
+        actual_bool = false;
+    }
+    else {
+        logger.warn("Element {s} is not a valid bool", .{name});
+        return xml.Error;
+    }
+    input.* = actual_bool;
+}
+
 pub fn handleAttributes(self: *Parser, input: anytype, parent: xml.Element) !void {
     var attributes = parent.getAttributes();
     inline for (@typeInfo(@TypeOf(input.*)).Struct.fields) |field| {
@@ -117,4 +137,18 @@ pub fn handleSingleItem(self: *Parser, comptime name: []const u8, input: anytype
         return xml.Error;
     };
     try self.traverseField(input, "__item__", element);
+}
+
+fn getTextNode(comptime name: []const u8, input: anytype, parent: xml.Element) ![:0]const u8 {
+    var text_node = (try parent.getFirstChild()) orelse {
+        logger.warn("Text element {s} has no text", .{name});
+        return xml.Error;
+    };
+    switch (text_node) {
+        .TextNode => |tn| return tn.getValue(),
+        else => {
+            logger.warn("Element {s} is not a text element", .{name});
+            return xml.Error;
+        }
+    }
 }

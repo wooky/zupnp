@@ -1,6 +1,6 @@
-const std = @import("std");
-const testing = std.testing;
+const testing = @import("std").testing;
 const Document = @import("zupnp").xml.Document;
+const full = @import("full.zig");
 
 test "encoding to XML" {
     var doc = try Document.new();
@@ -21,6 +21,22 @@ test "encoding to XML" {
 
             var child1_text = try doc.createTextNode("I am required");
             try child1.appendChild(child1_text);
+        }
+
+        {
+            var int_child = try doc.createElement("int-child");
+            try element1.appendChild(int_child);
+
+            var int_child_text = try doc.createTextNode("-23");
+            try int_child.appendChild(int_child_text);
+        }
+
+        {
+            var wacky_child = try doc.createElement("wacky:child");
+            try element1.appendChild(wacky_child);
+
+            var wacky_child_text = try doc.createTextNode("true");
+            try wacky_child.appendChild(wacky_child_text);
         }
     }
 
@@ -62,11 +78,11 @@ test "encoding to XML" {
 
     var string = try doc.toString();
     defer string.deinit();
-    try testing.expectEqualStrings(@embedFile("full.xml"), string.string);
+    try testing.expectEqualStrings(full.file, string.string);
 }
 
 test "decoding from XML" {
-    var doc = try Document.fromString(@embedFile("full.xml"));
+    var doc = try Document.fromString(full.file);
     defer doc.deinit();
 
     const root = (try doc.getElementsByTagName("root").getSingleItem()).Element;
@@ -79,6 +95,14 @@ test "decoding from XML" {
     const child1 = (try element1.getElementsByTagName("child1").getSingleItem()).Element;
     const child1_text = (try child1.getFirstChild()).?.TextNode;
     try testing.expectEqualStrings("I am required", child1_text.getValue());
+
+    const int_child = (try element1.getElementsByTagName("int-child").getSingleItem()).Element;
+    const int_child_text = (try int_child.getFirstChild()).?.TextNode;
+    try testing.expectEqualStrings("-23", int_child_text.getValue());
+
+    const wacky_child = (try element1.getElementsByTagName("wacky:child").getSingleItem()).Element;
+    const wacky_child_text = (try wacky_child.getFirstChild()).?.TextNode;
+    try testing.expectEqualStrings("true", wacky_child_text.getValue());
 
     const bogus_children = element1.getElementsByTagName("bogus");
     try testing.expectEqual(@as(usize, 0), bogus_children.getLength());

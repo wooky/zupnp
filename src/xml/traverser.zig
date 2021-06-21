@@ -26,17 +26,23 @@ pub fn StructTraverser(comptime Self: type, comptime logger: type) type {
                     if (@typeInfo(p.child) == .Struct) {
                         return self.handlePointer(name, input, parent.Element);
                     }
-                    if (comptime !std.mem.eql(u8, name, item_field_name)) {
-                        return self.handleSingleItem(name, input, parent.Element);
-                    }
                     if (p.child == u8) {
-                        return self.handleString(name, input, parent.Element);
+                        return self.handleLeafNode(input, name, parent.Element, Self.handleString);
                     }
                     @compileError("Field " ++ name ++ " has unsupported pointer type " ++ @typeName(p.child));
                 },
                 .Optional => |o| try self.handleOptional(name, input, parent.Element),
+                .Int => try self.handleLeafNode(input, name, parent.Element, Self.handleInt),
+                .Bool => try self.handleLeafNode(input, name, parent.Element, Self.handleBool),
                 else => @compileError("Unsupported field " ++ name ++ " inside struct")
             }
+        }
+
+        pub fn handleLeafNode(self: *Self, input: anytype, comptime name: []const u8, parent: xml.Element, forwardFn: anytype) !void {
+            if (comptime !std.mem.eql(u8, name, item_field_name)) {
+                return self.handleSingleItem(name, input, parent);
+            }
+            return forwardFn(self, name, input, parent);
         }
     };
 }

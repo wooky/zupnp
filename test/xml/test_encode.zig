@@ -1,33 +1,9 @@
-const std = @import("std");
-const testing = std.testing;
+const testing = @import("std").testing;
 const xml = @import("zupnp").xml;
-
-const Repeated = struct {
-    anotherone: struct {
-        __attributes__: struct {
-            optionalattr: ?[]const u8 = null,
-        } = .{},
-        __item__: []const u8
-    }
-};
-const TestStructure = struct {
-    root: struct {
-        element1: struct {
-            __attributes__: struct {
-                attr1: []const u8,
-                attr2: ?[]const u8,
-            },
-            child1: []const u8,
-        },
-        element2: struct {
-            child2: ?[]const u8,
-            repeated: []const Repeated,
-        },
-    },
-};
+const full = @import("full.zig");
 
 test "full structure" {
-    const input = TestStructure {
+    const input = full.TestStructure {
         .root = .{
             .element1 = .{
                 .__attributes__ = .{
@@ -35,10 +11,12 @@ test "full structure" {
                     .attr2 = "world",
                 },
                 .child1 = "I am required",
+                .@"int-child" = -23,
+                .@"wacky:child" = true,
             },
             .element2 = .{
                 .child2 = "I am optional",
-                .repeated = &[_] Repeated {
+                .repeated = &[_] full.Repeated {
                     .{
                         .anotherone = .{
                             .__item__ = "Another one"
@@ -61,7 +39,5 @@ test "full structure" {
     var result = try doc.toString();
     defer result.deinit();
 
-    var buf: [512]u8 = undefined;
-    const expected_xml = @embedFile("full.xml");
-    try testing.expectEqualStrings(expected_xml, result.string);
+    try testing.expectEqualStrings(full.file, result.string);
 }
