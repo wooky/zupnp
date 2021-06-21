@@ -8,11 +8,15 @@ const Server = @This();
 const logger = std.log.scoped(.@"zupnp.web.Server");
 
 const Endpoint = struct {
+    const DeinitFn = fn(*c_void) void;
+    const GetFn = fn(*c_void, *const zupnp.web.ServerRequest) zupnp.web.ServerResponse;
+    const PostFn = fn(*c_void, *const zupnp.web.ServerRequest) bool;
+
     instance: *c_void,
     allocator: *Allocator,
-    deinitFn: ?fn(*c_void) void,
-    getFn: ?fn(*c_void, *const zupnp.web.ServerRequest) zupnp.web.ServerResponse,
-    postFn: ?fn(*c_void, *const zupnp.web.ServerRequest) bool,
+    deinitFn: ?DeinitFn,
+    getFn: ?GetFn,
+    postFn: ?PostFn,
 };
 
 const RequestCookie = struct {
@@ -59,9 +63,9 @@ pub fn createEndpoint(self: *Server, comptime T: type, config: anytype, destinat
     try self.endpoints.append(.{
         .instance = @ptrCast(*c_void, instance),
         .allocator = self.allocator,
-        .deinitFn = if (@hasDecl(T, "deinit")) T.deinit else null,
-        .getFn = if (@hasDecl(T, "get")) T.get else null,
-        .postFn = if (@hasDecl(T, "post")) T.post else null,
+        .deinitFn = mutateEndpointCallback(T, "deinit", Endpoint.DeinitFn),
+        .getFn = mutateEndpointCallback(T, "get", Endpoint.GetFn),
+        .postFn = mutateEndpointCallback(T, "post", Endpoint.PostFn),
     });
     errdefer { _ = self.endpoints.pop(); }
 
@@ -194,4 +198,34 @@ fn fetchEndpoint(ptr: ?*const c_void) *Endpoint {
 
 fn fetchRequestCookie(ptr: ?*const c_void) *RequestCookie {
     return @intToPtr(*RequestCookie, @ptrToInt(ptr));
+}
+
+fn mutateEndpointCallback(
+    comptime InstanceType: type,
+    comptime callback_fn_name: []const u8,
+    comptime EndpointType: type
+) ?EndpointType {
+    if (!@hasDecl(InstanceType, callback_fn_name)) {
+        return null;
+    }
+
+    const callback_fn = @field(InstanceType, callback_fn_name);
+    const callback_fn_info = @typeInfo(@TypeOf(callback_fn)).Fn;
+    const endpoint_type_info = @typeInfo(EndpointType).Fn;
+    if (callback_fn_info.return_type.? != endpoint_type_info.return_type.?) {
+        @compileError("Wrong callback return type");
+    }
+    if (callback_fn_info.args.len != endpoint_type_info.args.len) {
+        @compileError("Callback has wrong number of arguments");
+    }
+    inline for (callback_fn_info.args) |arg, i| {
+        if (i == 0 and arg.arg_type != *InstanceType) {
+            @compileError("Argument 1 has wrong type");
+        }
+        if (i > 0 and arg.arg_type.? != endpoint_type_info.args[i].arg_type.?) {
+            @compileError("Argument " ++ i + 1 ++ " has wrong type");
+        }
+    }
+
+    return @intToPtr(EndpointType, @ptrToInt(callback_fn));
 }
