@@ -3,7 +3,12 @@ const testing = std.testing;
 const xml = @import("zupnp").xml;
 
 const Repeated = struct {
-    anotherone: []const u8,
+    anotherone: struct {
+        __attributes__: struct {
+            optionalattr: ?[]const u8 = null,
+        } = .{},
+        __item__: []const u8
+    }
 };
 const TestStructure = struct {
     root: struct {
@@ -35,10 +40,17 @@ test "full structure" {
                 .child2 = "I am optional",
                 .repeated = &[_] Repeated {
                     .{
-                        .anotherone = "Another one",
+                        .anotherone = .{
+                            .__item__ = "Another one"
+                        },
                     },
                     .{
-                        .anotherone = "Another two",
+                        .anotherone = .{
+                            .__attributes__ = .{
+                                .optionalattr = "yes",
+                            },
+                            .__item__ = "Another two",
+                        },
                     },
                 },
             },
@@ -51,5 +63,5 @@ test "full structure" {
 
     var buf: [512]u8 = undefined;
     const expected_xml = @embedFile("full.xml");
-    try testing.expectEqualSlices(u8, expected_xml, result.string);
+    try testing.expectEqualStrings(expected_xml, result.string);
 }

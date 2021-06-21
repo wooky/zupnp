@@ -2,6 +2,7 @@ const std = @import("std");
 const xml = @import("../lib.zig").xml;
 
 const attributes_field_name = "__attributes__";
+const item_field_name = "__item__";
 
 pub fn StructTraverser(comptime Self: type, comptime logger: type) type {
     return struct {
@@ -15,25 +16,26 @@ pub fn StructTraverser(comptime Self: type, comptime logger: type) type {
             switch (@typeInfo(@TypeOf(input.*))) {
                 .Struct => |s|
                     if (comptime std.mem.eql(u8, name, attributes_field_name)) {
-                        try self.handleAttributes(name, input, parent.Element);
+                        try self.handleAttributes(input, parent.Element);
                     }
                     else {
                         try self.handleSubStruct(name, input, parent);
                     }
                 ,
-                .Pointer => |p| 
+                .Pointer => |p| {
+                    if (@typeInfo(p.child) == .Struct) {
+                        return self.handlePointer(name, input, parent.Element);
+                    }
+                    if (comptime !std.mem.eql(u8, name, item_field_name)) {
+                        return self.handleSingleItem(name, input, parent.Element);
+                    }
                     if (p.child == u8) {
-                        try self.handleString(name, input, parent.Element);
+                        return self.handleString(name, input, parent.Element);
                     }
-                    else if (@typeInfo(p.child) == .Struct) {
-                        try self.handlePointer(name, input, parent.Element);
-                    }
-                    else {
-                        @compileError("Field " ++ name ++ " has invalid pointer type");
-                    }
-                ,
+                    @compileError("Field " ++ name ++ " has unsupported pointer type " ++ @typeName(p.child));
+                },
                 .Optional => |o| try self.handleOptional(name, input, parent.Element),
-                else => @compileError("Invalid field " ++ name ++ " inside struct")
+                else => @compileError("Unsupported field " ++ name ++ " inside struct")
             }
         }
     };

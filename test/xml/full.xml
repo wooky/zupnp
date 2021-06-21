@@ -9,7 +9,7 @@
 <anotherone>Another one</anotherone>
 </repeated>
 <repeated>
-<anotherone>Another two</anotherone>
+<anotherone optionalattr="yes">Another two</anotherone>
 </repeated>
 </element2>
 </root>

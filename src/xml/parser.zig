@@ -83,11 +83,7 @@ pub fn handleOptional(self: *Parser, comptime name: []const u8, input: anytype, 
 }
 
 pub fn handleString(self: *Parser, comptime name: []const u8, input: anytype, parent: xml.Element) !void {
-    var element = parent.getElementsByTagName(name ++ "\x00").getSingleItem() catch {
-        logger.warn("Missing element {s}", .{name});
-        return xml.Error;
-    };
-    var text_node = (try element.Element.getFirstChild()) orelse {
+    var text_node = (try parent.getFirstChild()) orelse {
         logger.warn("Text element {s} has no text", .{name});
         return xml.Error;
     };
@@ -100,7 +96,7 @@ pub fn handleString(self: *Parser, comptime name: []const u8, input: anytype, pa
     }
 }
 
-pub fn handleAttributes(self: *Parser, comptime name: []const u8, input: anytype, parent: xml.Element) !void {
+pub fn handleAttributes(self: *Parser, input: anytype, parent: xml.Element) !void {
     var attributes = parent.getAttributes();
     inline for (@typeInfo(@TypeOf(input.*)).Struct.fields) |field| {
         const value = blk: {
@@ -113,4 +109,12 @@ pub fn handleAttributes(self: *Parser, comptime name: []const u8, input: anytype
             else => @compileError("Invalid field '" ++ field.name ++ "' for attribute struct")
         };
     }
+}
+
+pub fn handleSingleItem(self: *Parser, comptime name: []const u8, input: anytype, parent: xml.Element) !void {
+    var element = parent.getElementsByTagName(name ++ "\x00").getSingleItem() catch {
+        logger.warn("Missing element {s}", .{name});
+        return xml.Error;
+    };
+    try self.traverseField(input, "__item__", element);
 }

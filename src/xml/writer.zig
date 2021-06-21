@@ -49,17 +49,21 @@ pub fn handleOptional(self: *Writer, comptime name: []const u8, input: anytype, 
 }
 
 pub fn handleString(self: *Writer, comptime name: []const u8, input: anytype, parent: xml.Element) !void {
-    var node = try self.doc.createElement(name ++ "\x00");
     var text = try self.doc.createTextNode(try self.arena.allocator.dupeZ(u8, input.*));
-    try node.appendChild(text);
-    try parent.appendChild(node);
+    try parent.appendChild(text);
 }
 
-pub fn handleAttributes(self: *Writer, comptime name: []const u8, input: anytype, parent: xml.Element) !void {
+pub fn handleAttributes(self: *Writer, input: anytype, parent: xml.Element) !void {
     inline for (@typeInfo(@TypeOf(input.*)).Struct.fields) |field| {
         const field_value_opt: ?[]const u8 = @field(input.*, field.name);
         if (field_value_opt) |field_value| {
             try parent.setAttribute(field.name ++ "\x00", try self.arena.allocator.dupeZ(u8, field_value));
         }
     }
+}
+
+pub fn handleSingleItem(self: *Writer, comptime name: []const u8, input: anytype, parent: xml.Element) !void {
+    var node = try self.doc.createElement(name ++ "\x00");
+    try self.traverseField(input, "__item__", try node.toNode());
+    try parent.appendChild(node);
 }

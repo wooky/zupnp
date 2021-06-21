@@ -122,8 +122,13 @@ pub const Element = struct {
         return Element { .handle = handle };
     }
 
+    /// Get the tag name of this element
+    pub fn getTagName(self: *const Element) [:0]const u8 {
+        return std.mem.sliceTo(c.ixmlElement_getTagName(), 0);
+    }
+
     /// Get single attribute of this element, if it exists.
-    pub fn getAttribute(self: *const Element, name: [:0]const u8) ?[]const u8 {
+    pub fn getAttribute(self: *const Element, name: [:0]const u8) ?[:0]const u8 {
         if (c.ixmlElement_getAttribute(self.handle, name)) |attr| {
             return std.mem.sliceTo(attr, 0);
         }

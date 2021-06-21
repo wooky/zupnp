@@ -53,6 +53,7 @@ test "encoding to XML" {
 
             var anotherone = try doc.createElement("anotherone");
             try repeated.appendChild(anotherone);
+            try anotherone.setAttribute("optionalattr", "yes");
 
             var anotherone_text = try doc.createTextNode("Another two");
             try anotherone.appendChild(anotherone_text);
@@ -61,7 +62,7 @@ test "encoding to XML" {
 
     var string = try doc.toString();
     defer string.deinit();
-    try testing.expectEqualSlices(u8, @embedFile("full.xml"), string.string);
+    try testing.expectEqualStrings(@embedFile("full.xml"), string.string);
 }
 
 test "decoding from XML" {
@@ -71,13 +72,13 @@ test "decoding from XML" {
     const root = (try doc.getElementsByTagName("root").getSingleItem()).Element;
 
     const element1 = (try root.getElementsByTagName("element1").getSingleItem()).Element;
-    try testing.expectEqualSlices(u8, "hello", element1.getAttribute("attr1").?);
-    try testing.expectEqualSlices(u8, "world", element1.getAttribute("attr2").?);
+    try testing.expectEqualStrings("hello", element1.getAttribute("attr1").?);
+    try testing.expectEqualStrings("world", element1.getAttribute("attr2").?);
     try testing.expect(element1.getAttribute("bogus") == null);
 
     const child1 = (try element1.getElementsByTagName("child1").getSingleItem()).Element;
     const child1_text = (try child1.getFirstChild()).?.TextNode;
-    try testing.expectEqualSlices(u8, "I am required", child1_text.getValue());
+    try testing.expectEqualStrings("I am required", child1_text.getValue());
 
     const bogus_children = element1.getElementsByTagName("bogus");
     try testing.expectEqual(@as(usize, 0), bogus_children.getLength());
@@ -86,19 +87,20 @@ test "decoding from XML" {
 
     const child2 = (try element2.getElementsByTagName("child2").getSingleItem()).Element;
     const child2_text = (try child2.getFirstChild()).?.TextNode;
-    try testing.expectEqualSlices(u8, "I am optional", child2_text.getValue());
+    try testing.expectEqualStrings("I am optional", child2_text.getValue());
 
     var repeated_iter = element2.getElementsByTagName("repeated").iterator();
 
     const repeated1 = (try repeated_iter.next()).?.Element;
     const anotherone1 = (try repeated1.getElementsByTagName("anotherone").getSingleItem()).Element;
     const anotherone1_text = (try anotherone1.getFirstChild()).?.TextNode;
-    try testing.expectEqualSlices(u8, "Another one", anotherone1_text.getValue());
+    try testing.expectEqualStrings("Another one", anotherone1_text.getValue());
 
     const repeated2 = (try repeated_iter.next()).?.Element;
     const anotherone2 = (try repeated2.getElementsByTagName("anotherone").getSingleItem()).Element;
     const anotherone2_text = (try anotherone2.getFirstChild()).?.TextNode;
-    try testing.expectEqualSlices(u8, "Another two", anotherone2_text.getValue());
+    try testing.expectEqualStrings("Another two", anotherone2_text.getValue());
+    try testing.expectEqualStrings("yes", anotherone2.getAttribute("optionalattr").?);
 
     try testing.expect((try repeated_iter.next()) == null);
 }
