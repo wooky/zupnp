@@ -79,10 +79,7 @@ pub fn chunkedRequest(self: *Client, method: zupnp.web.Method, url: [:0]const u8
         logger.err("Failed getting HTTP response: {s}", .{err});
         return zupnp.Error;
     }
-    var content_type_slice: [:0]const u8 = undefined;
-    content_type_slice.ptr = content_type;
-    content_type_slice.len = 0;
-    while (content_type[content_type_slice.len] != 0) : (content_type_slice.len += 1) {}
+    var content_type_slice = std.mem.sliceTo(content_type, 0);
 
     return zupnp.web.ChunkedClientResponse {
         .http_status = http_status,

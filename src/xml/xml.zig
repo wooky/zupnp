@@ -104,7 +104,7 @@ pub const Document = struct {
     /// Convert the document into a string.
     pub fn toString(self: *const Document) !DOMString {
         if (c.ixmlDocumenttoString(self.handle)) |string| {
-            return DOMString.init(cStringToSlice(string));
+            return DOMString.init(std.mem.sliceTo(string, 0));
         }
         logger.err("Failed to render document to string", .{});
         return xml.Error;
@@ -125,7 +125,7 @@ pub const Element = struct {
     /// Get single attribute of this element, if it exists.
     pub fn getAttribute(self: *const Element, name: [:0]const u8) ?[]const u8 {
         if (c.ixmlElement_getAttribute(self.handle, name)) |attr| {
-            return cStringToSlice(attr);
+            return std.mem.sliceTo(attr, 0);
         }
         return null;
     }
@@ -164,7 +164,7 @@ pub const TextNode = struct {
 
     /// Get the string value of this node.
     pub fn getValue(self: *const TextNode) [:0]const u8 {
-        return cStringToSlice(c.ixmlNode_getNodeValue(self.handle));
+        return std.mem.sliceTo(c.ixmlNode_getNodeValue(self.handle), 0);
     }
 
     /// Set the string value of this node.
@@ -283,12 +283,4 @@ fn check(err: c_int, comptime message: []const u8, comptime severity: []const u8
         @field(logger, severity)(message ++ ": {d}", .{err});
         return xml.Error;
     }
-}
-
-fn cStringToSlice(str: [*:0]const u8) [:0]const u8 {
-    var slice: [:0]const u8 = undefined;
-    slice.ptr = str;
-    slice.len = 0;
-    while (str[slice.len] != 0) : (slice.len += 1) {}
-    return slice;
 }
