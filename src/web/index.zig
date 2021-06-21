@@ -17,9 +17,15 @@ pub const ClientResponse = struct {
     contents: [:0]const u8,
 };
 
-pub const ServerRequest = struct {
+pub const ServerGetRequest = struct {
     allocator: *std.mem.Allocator,
     filename: [:0]const u8,
+};
+
+pub const ServerPostRequest = struct {
+    allocator: *std.mem.Allocator,
+    filename: [:0]const u8,
+    contents: std.ArrayList(u8),
 };
 
 pub const ServerResponse = union(enum) {

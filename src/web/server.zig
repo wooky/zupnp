@@ -6,11 +6,12 @@ const zupnp = @import("../lib.zig");
 
 const Server = @This();
 const logger = std.log.scoped(.@"zupnp.web.Server");
+var no_file_handle: u8 = 0;
 
 const Endpoint = struct {
     const DeinitFn = fn(*c_void) void;
-    const GetFn = fn(*c_void, *const zupnp.web.ServerRequest) zupnp.web.ServerResponse;
-    const PostFn = fn(*c_void, *const zupnp.web.ServerRequest) bool;
+    const GetFn = fn(*c_void, *const zupnp.web.ServerGetRequest) zupnp.web.ServerResponse;
+    const PostFn = fn(*c_void, *const zupnp.web.ServerPostRequest) bool;
 
     instance: *c_void,
     allocator: *Allocator,
@@ -30,11 +31,12 @@ endpoints: std.ArrayList(Endpoint),
 static_root_dir: ?[:0]const u8 = null,
 
 pub fn init(allocator: *Allocator) Server {
-    logger.debug("Callback init: GetInfo {d}; Open {d}; Read {d}; Seek {d}; Close {d}", .{
+    logger.debug("Callback init: GetInfo {d}; Open {d}; Read {d}; Seek {d}; Write {d}; Close {d}", .{
         c.UpnpVirtualDir_set_GetInfoCallback(getInfo),
         c.UpnpVirtualDir_set_OpenCallback(open),
         c.UpnpVirtualDir_set_ReadCallback(read),
         c.UpnpVirtualDir_set_SeekCallback(seek),
+        c.UpnpVirtualDir_set_WriteCallback(write),
         c.UpnpVirtualDir_set_CloseCallback(close),
     });
 
@@ -104,20 +106,17 @@ pub fn stop(self: *Server) void {
 }
 
 fn getInfo(filename_c: [*c]const u8, info: ?*c.UpnpFileInfo, cookie: ?*const c_void, request_cookie: [*c]?*const c_void) callconv(.C) c_int {
-    var filename: [:0]const u8 = undefined;
-    filename.ptr = filename_c;
-    filename.len = 0;
-    while (filename_c[filename.len] != 0) : (filename.len += 1) {}
+    const filename = std.mem.sliceTo(filename_c, 0);
     logger.debug("GET {s}", .{filename});
 
     const endpoint = fetchEndpoint(cookie);
     if (endpoint.getFn == null) {
-        logger.debug("No endpoint defined for {s}", .{filename});
+        logger.debug("No GET endpoint defined", .{});
         return -1;
     }
     
     var arena = ArenaAllocator.init(endpoint.allocator);
-    const request = zupnp.web.ServerRequest {
+    const request = zupnp.web.ServerGetRequest {
         .allocator = &arena.allocator,
         .filename = filename,
     };
@@ -158,14 +157,23 @@ fn open(filename_c: [*c]const u8, mode: c.enum_UpnpOpenFileMode, cookie: ?*const
     // UPNP_READ (i.e. GET) was already handled under get_info
 
     if (mode == .UPNP_WRITE) {
+        const filename = std.mem.sliceTo(filename_c, 0);
+        logger.debug("POST {s}", .{filename});
         const endpoint = fetchEndpoint(cookie);
         if (endpoint.postFn == null) {
-            const request = fetchRequestCookie(request_cookie);
-            request.arena.deinit();
+            logger.debug("No POST endpoint defined", .{});
             return null;
         }
+
+        var request = endpoint.allocator.create(zupnp.web.ServerPostRequest) catch |err| {
+            logger.err("Failed to create POST request object: {s}", .{err});
+            return null;
+        };
+        request.filename = filename;
+        request.contents = std.ArrayList(u8).init(endpoint.allocator);
+        return @ptrCast(c.UpnpWebFileHandle, request);
     }
-    return undefined; // TODO replace with defined non-null memory location
+    return @ptrCast(c.UpnpWebFileHandle, &no_file_handle);
 }
 
 fn read(file_handle: c.UpnpWebFileHandle, buf: [*c]u8, buflen: usize, cookie: ?*const c_void, request_cookie: ?*const c_void) callconv(.C) c_int {
@@ -186,9 +194,31 @@ fn seek(file_handle: c.UpnpWebFileHandle, offset: c.off_t, origin: c_int, cookie
     return 0;
 }
 
+fn write(file_handle: c.UpnpWebFileHandle, buf: [*c]u8, buflen: usize, cookie: ?*const c_void, request_cookie: ?*const c_void) callconv(.C) c_int {
+    var request = fetchPostRequest(file_handle);
+    request.contents.appendSlice(buf[0..buflen]) catch |err| {
+        logger.err("Failed to write POST request to buffer: {s}", .{err});
+        return -1;
+    };
+    return @intCast(c_int, buflen);
+}
+
 fn close(file_handle: c.UpnpWebFileHandle, cookie: ?*const c_void, request_cookie: ?*const c_void) callconv(.C) c_int {
-    var request = fetchRequestCookie(request_cookie);
-    request.arena.deinit();
+    // GET
+    if (request_cookie != null) {
+        var request = fetchRequestCookie(request_cookie);
+        request.arena.deinit();
+        return 0;
+    }
+
+    // POST
+    var request = fetchPostRequest(file_handle);
+    defer request.contents.deinit();
+    const endpoint = fetchEndpoint(cookie);
+    var arena = ArenaAllocator.init(endpoint.allocator);
+    defer arena.deinit();
+    request.allocator = &arena.allocator;
+    _ = (endpoint.postFn.?)(endpoint.instance, request);
     return 0;
 }
 
@@ -198,6 +228,10 @@ fn fetchEndpoint(ptr: ?*const c_void) *Endpoint {
 
 fn fetchRequestCookie(ptr: ?*const c_void) *RequestCookie {
     return @intToPtr(*RequestCookie, @ptrToInt(ptr));
+}
+
+fn fetchPostRequest(ptr: c.UpnpWebFileHandle) *zupnp.web.ServerPostRequest {
+    return @ptrCast(*zupnp.web.ServerPostRequest, @alignCast(@alignOf(*zupnp.web.ServerPostRequest), ptr));
 }
 
 fn mutateEndpointCallback(
