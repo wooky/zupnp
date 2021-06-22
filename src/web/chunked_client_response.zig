@@ -6,8 +6,8 @@ const ChunkedClientResponse = @This();
 const logger = std.log.scoped(.@"zupnp.web.ChunkedClientResponse");
 
 http_status: c_int,
-content_type: [:0]const u8,
-content_length: usize,
+content_type: ?[:0]const u8,
+content_length: ?u32,
 timeout: c_int,
 // keepalive: bool,
 handle: *zupnp.web.Client.Handle,
@@ -29,5 +29,7 @@ pub fn cancel(self: *ChunkedClientResponse) void {
     logger.debug("Cancel err {d}", .{c.UpnpCancelHttpGet(self.handle.handle)});
     // if (!self.keepalive) {
         self.handle.close();
+        // Due to the nature of pupnp, once the handle is closed, content type get clobbered
+        self.content_type = null;
     // }
 }

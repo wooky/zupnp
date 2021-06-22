@@ -26,7 +26,8 @@ const RequestCookie = struct {
     seek_pos: usize,
 };
 
-allocator: *Allocator,
+arena: ArenaAllocator,
+base_url: ?[:0]const u8 = null,
 endpoints: std.ArrayList(Endpoint),
 static_root_dir: ?[:0]const u8 = null,
 
@@ -41,7 +42,7 @@ pub fn init(allocator: *Allocator) Server {
     });
 
     return Server {
-        .allocator = allocator,
+        .arena = ArenaAllocator.init(allocator),
         .endpoints = std.ArrayList(Endpoint).init(allocator),
     };
 }
@@ -52,19 +53,23 @@ pub fn deinit(self: *Server) void {
             deinitFn(endpoint.instance);
         }
     }
+    self.base_url = null;
     self.endpoints.deinit();
+    self.arena.deinit();
 }
 
 pub fn createEndpoint(self: *Server, comptime T: type, config: anytype, destination: [:0]const u8) !*T {
-    var instance = try self.allocator.create(T);
-    errdefer self.allocator.destroy(instance);
+    var instance = try self.arena.allocator.create(T);
+    errdefer self.arena.allocator.destroy(instance);
     if (@hasDecl(T, "prepare")) {
         try instance.prepare(config);
     }
 
     try self.endpoints.append(.{
+        // TODO allow passing in struct with no in-memory representation
+        // Easiest would be to turn `instance` to ?*c_void
         .instance = @ptrCast(*c_void, instance),
-        .allocator = self.allocator,
+        .allocator = &self.arena.allocator,
         .deinitFn = mutateEndpointCallback(T, "deinit", Endpoint.DeinitFn),
         .getFn = mutateEndpointCallback(T, "get", Endpoint.GetFn),
         .postFn = mutateEndpointCallback(T, "post", Endpoint.PostFn),
@@ -94,13 +99,17 @@ pub fn start(self: *Server) !void {
         logger.err("Failed to start server: {s}", .{err});
         return zupnp.Error;
     }
-    logger.notice("Started listening on http://{s}:{d}", .{
+    self.base_url = try std.fmt.allocPrintZ(&self.arena.allocator, "http://{s}:{d}", .{
         c.UpnpGetServerIpAddress(),
         c.UpnpGetServerPort()
     });
+    logger.notice("Started listening on {s}", .{self.base_url});
 }
 
 pub fn stop(self: *Server) void {
+    if (self.base_url != null) {
+        self.base_url = null;
+    }
     c.UpnpSetWebServerRootDir(null);
     logger.notice("Stopped listening", .{});
 }

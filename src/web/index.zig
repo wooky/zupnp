@@ -5,16 +5,24 @@ pub const ChunkedClientResponse = @import("chunked_client_response.zig");
 pub const Client = @import("client.zig");
 pub const Server = @import("server.zig");
 
-pub const HttpContents = struct {
+pub const ClientRequest = struct {
     headers: [][]const u8 = &[_][]const u8{},
     content_type: ?[:0]const u8 = null,
     contents: []const u8 = "",
 };
 
 pub const ClientResponse = struct {
+    allocator: *std.mem.Allocator,
     http_status: c_int,
-    content_type: [:0]const u8,
+    content_type: ?[:0]const u8,
     contents: [:0]const u8,
+
+    pub fn deinit(self: *ClientResponse) void {
+        self.allocator.free(self.contents);
+        if (self.content_type) |ct| {
+            self.allocator.free(ct);
+        }
+    }
 };
 
 pub const ServerGetRequest = struct {
@@ -32,7 +40,11 @@ pub const ServerResponse = union(enum) {
     NotFound: void,
     Forbidden: void,
     Chunked: void,
-    Contents: HttpContents,
+    Contents: struct {
+        headers: [][]const u8 = &[_][]const u8{},
+        content_type: ?[:0]const u8 = null,
+        contents: []const u8 = "",
+    },
 };
 
 pub const Method = enum(c_int) {
