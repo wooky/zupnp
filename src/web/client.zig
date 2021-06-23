@@ -62,7 +62,7 @@ pub fn chunkedRequest(self: *Client, method: zupnp.web.Method, url: [:0]const u8
     }
 
     if (client_request.contents.len > 0) {
-        const contents = @intToPtr([*c]u8, @ptrToInt(client_request.contents.ptr));
+        const contents = c.mutate([*c]u8, client_request.contents.ptr);
         var len = client_request.contents.len;
         if (c.is_error(c.UpnpWriteHttpRequest(self.handle.handle, contents, &len, timeout))) |err| {
             logger.err("Failed writing HTTP contents to endpoint: {s}", .{err});

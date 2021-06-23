@@ -278,7 +278,7 @@ pub const DOMString = struct {
     }
 
     pub fn deinit(self: *DOMString) void {
-        c.ixmlFreeDOMString(@intToPtr([*c]u8, @ptrToInt(self.string.ptr)));
+        c.ixmlFreeDOMString(c.mutate([*c]u8, self.string.ptr));
     }
 };
 

@@ -70,9 +70,9 @@ pub fn createEndpoint(self: *Server, comptime T: type, config: anytype, destinat
         // Easiest would be to turn `instance` to ?*c_void
         .instance = @ptrCast(*c_void, instance),
         .allocator = &self.arena.allocator,
-        .deinitFn = mutateEndpointCallback(T, "deinit", Endpoint.DeinitFn),
-        .getFn = mutateEndpointCallback(T, "get", Endpoint.GetFn),
-        .postFn = mutateEndpointCallback(T, "post", Endpoint.PostFn),
+        .deinitFn = c.mutateCallback(T, "deinit", Endpoint.DeinitFn),
+        .getFn = c.mutateCallback(T, "get", Endpoint.GetFn),
+        .postFn = c.mutateCallback(T, "post", Endpoint.PostFn),
     });
     errdefer { _ = self.endpoints.pop(); }
 
@@ -232,43 +232,14 @@ fn close(file_handle: c.UpnpWebFileHandle, cookie: ?*const c_void, request_cooki
 }
 
 fn fetchEndpoint(ptr: ?*const c_void) *Endpoint {
-    return @intToPtr(*Endpoint, @ptrToInt(ptr));
+    return c.mutate(*Endpoint, ptr);
 }
 
 fn fetchRequestCookie(ptr: ?*const c_void) *RequestCookie {
-    return @intToPtr(*RequestCookie, @ptrToInt(ptr));
+    return c.mutate(*RequestCookie, ptr);
 }
 
 fn fetchPostRequest(ptr: c.UpnpWebFileHandle) *zupnp.web.ServerPostRequest {
-    return @ptrCast(*zupnp.web.ServerPostRequest, @alignCast(@alignOf(*zupnp.web.ServerPostRequest), ptr));
-}
-
-fn mutateEndpointCallback(
-    comptime InstanceType: type,
-    comptime callback_fn_name: []const u8,
-    comptime EndpointType: type
-) ?EndpointType {
-    if (!@hasDecl(InstanceType, callback_fn_name)) {
-        return null;
-    }
-
-    const callback_fn = @field(InstanceType, callback_fn_name);
-    const callback_fn_info = @typeInfo(@TypeOf(callback_fn)).Fn;
-    const endpoint_type_info = @typeInfo(EndpointType).Fn;
-    if (callback_fn_info.return_type.? != endpoint_type_info.return_type.?) {
-        @compileError("Wrong callback return type");
-    }
-    if (callback_fn_info.args.len != endpoint_type_info.args.len) {
-        @compileError("Callback has wrong number of arguments");
-    }
-    inline for (callback_fn_info.args) |arg, i| {
-        if (i == 0 and arg.arg_type != *InstanceType) {
-            @compileError("Argument 1 has wrong type");
-        }
-        if (i > 0 and arg.arg_type.? != endpoint_type_info.args[i].arg_type.?) {
-            @compileError("Argument " ++ i + 1 ++ " has wrong type");
-        }
-    }
-
-    return @intToPtr(EndpointType, @ptrToInt(callback_fn));
+    // return @ptrCast(*zupnp.web.ServerPostRequest, @alignCast(@alignOf(*zupnp.web.ServerPostRequest), ptr));
+    return c.mutate(*zupnp.web.ServerPostRequest, ptr);
 }

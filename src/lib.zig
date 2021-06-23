@@ -17,6 +17,7 @@ pub const ZUPnP = struct {
     };
 
     allocator: *Allocator,
+    device_manager: upnp.device.Manager,
     server: web.Server,
 
     pub fn init(allocator: *Allocator, config: Config) !ZUPnP {
@@ -27,6 +28,7 @@ pub const ZUPnP = struct {
         // TODO in future releases of pupnp, call UpnpSetLogCallback to redirect logger calls to Zig's logger
         return ZUPnP {
             .allocator = allocator,
+            .device_manager = upnp.device.Manager.init(allocator),
             .server = web.Server.init(allocator),
         };
     }

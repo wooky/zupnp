@@ -1,3 +1,5 @@
-pub const Device = @import("device.zig");
-pub const Service = @import("service.zig");
-pub const UPnPServer = @import("upnp_server.zig");
+pub usingnamespace @import("definition/device.zig");
+pub usingnamespace @import("definition/didl-lite.zig");
+pub usingnamespace @import("definition/service.zig");
+
+pub const device = @import("device/index.zig");
