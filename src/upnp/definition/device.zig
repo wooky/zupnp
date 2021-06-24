@@ -3,17 +3,27 @@
 pub const Device = struct {
     root: struct {
         __attributes__: struct {
-            xmlns: "urn:schemas-upnp-org:device-1-0",
-        },
+            xmlns: []const u8 = "urn:schemas-upnp-org:device-1-0",
+        } = .{},
         specVersion: struct {
             major: u8 = 1,
             minor: u8 = 0,
-        },
+        } = .{},
         device: struct {
-            pub usingnamespace UserDefinedDeviceParameters;
             deviceType: []const u8,
             UDN: []const u8,
             serviceList: []ServiceDefinition,
+            // TODO reference the UserDefinedDeviceParameters struct directly rather than copy-pasting struct elements
+            friendlyName: []const u8,
+            manufacturer: []const u8,
+            manufacturerURL: ?[]const u8 = null,
+            modelDescription: ?[]const u8 = null,
+            modelName: []const u8,
+            modelNumber: ?[]const u8 = null,
+            modelURL: ?[]const u8 = null,
+            serialNumber: ?[]const u8 = null,
+            UPC: ?[]const u8 = null,
+            iconList: ?[]Icon = null,
         },
     }
 };
@@ -21,8 +31,8 @@ pub const Device = struct {
 pub const UserDefinedDeviceParameters = struct {
     friendlyName: []const u8,
     manufacturer: []const u8,
-    manufacturerURL: ?[]const u8,
-    modelDescription: ?[]const u8,
+    manufacturerURL: ?[]const u8 = null,
+    modelDescription: ?[]const u8 = null,
     modelName: []const u8,
     modelNumber: ?[]const u8 = null,
     modelURL: ?[]const u8 = null,

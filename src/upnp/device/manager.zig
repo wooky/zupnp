@@ -16,7 +16,6 @@ const RegisteredDevice = struct {
 
 arena: ArenaAllocator,
 devices: std.ArrayList(RegisteredDevice),
-server: ?zupnp.web.Server = null,
 
 pub fn init(allocator: *Allocator) Manager {
     return .{
@@ -41,7 +40,9 @@ pub fn createDevice(
     device_parameters: zupnp.upnp.UserDefinedDeviceParameters,
     config: anytype,
 ) !*T {
-    if (self.server == null) {
+    // TODO this is stupidly hacky
+    const server = @fieldParentPtr(zupnp.ZUPnP, "device_manager", self).server;
+    if (server.base_url == null) {
         logger.err("Server must be started before creating devices", .{});
         return zupnp.Error;
     }
@@ -50,8 +51,8 @@ pub fn createDevice(
     errdefer self.arena.allocator.destroy(instance);
 
     const udn = "udn:TODO";
-    const service_list = try instance.prepare(self.arena.allocator, udn, config);
-    defer self.arena.allocator.free(services);
+    const service_list = try instance.prepare(&self.arena.allocator, udn, config);
+    defer self.arena.allocator.free(service_list);
 
     const device = zupnp.upnp.Device {
         .root = .{
@@ -72,9 +73,9 @@ pub fn createDevice(
             }
         }
     };
-    const device_document = try zupnp.xml.encode(self.arena.allocator, device);
+    const device_document = try zupnp.xml.encode(&self.arena.allocator, device);
     defer device_document.deinit();
-    const device_str = try device_document.toString();
+    var device_str = try device_document.toString();
     defer device_str.deinit();
 
     try self.devices.append(.{
@@ -88,7 +89,7 @@ pub fn createDevice(
         .UPNPREG_BUF_DESC,
         device_str.string.ptr,
         device_str.string.len,
-        0, // TODO wtf does this do?
+        1, // TODO wtf does this do?
         onEvent,
         @ptrCast(*const c_void, &self.devices.items[self.devices.items.len - 1]),
         &handle)))
@@ -100,7 +101,7 @@ pub fn createDevice(
     return instance;
 }
 
-fn onEvent(event_type: c.Upnp_EventType, event: *const c_void, cookie: *c_void) c_int {
+fn onEvent(event_type: c.Upnp_EventType, event: ?*const c_void, cookie: ?*c_void) callconv(.C) c_int {
     // TODO
     return 0;
 }
