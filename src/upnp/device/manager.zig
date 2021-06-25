@@ -146,13 +146,11 @@ const ScpdEndpoint = struct {
         contents: []const u8
     ) ![]const u8 {
         const url = try std.fmt.allocPrint(self.allocator, "{s}/{s}/{s}", .{base_url, udn, service_id});
-        logger.info("Registered {s}", .{url});
         try self.xml_files.put(url, contents);
         return url;
     }
 
     pub fn get(self: *ScpdEndpoint, request: *const zupnp.web.ServerGetRequest) zupnp.web.ServerResponse {
-        logger.info("Requested URL is {s}", .{request.filename});
         return if (self.xml_files.get(request.filename)) |contents|
             .{ .Contents = .{ .content_type = "text/xml", .contents = contents } }
         else
