@@ -60,3 +60,9 @@ pub const ServiceDefinition = struct {
         eventSubURL: []const u8,
     }
 };
+
+pub const DeviceServiceDefinition = struct {
+    service_type: []const u8,
+    service_id: []const u8,
+    scpd_xml: []const u8,
+};

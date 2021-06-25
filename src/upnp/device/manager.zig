@@ -16,6 +16,7 @@ const RegisteredDevice = struct {
 
 arena: ArenaAllocator,
 devices: std.ArrayList(RegisteredDevice),
+scpd_endpoint: ?*ScpdEndpoint = null,
 
 pub fn init(allocator: *Allocator) Manager {
     return .{
@@ -40,19 +41,33 @@ pub fn createDevice(
     device_parameters: zupnp.upnp.UserDefinedDeviceParameters,
     config: anytype,
 ) !*T {
-    // TODO this is stupidly hacky
-    const server = @fieldParentPtr(zupnp.ZUPnP, "device_manager", self).server;
-    if (server.base_url == null) {
-        logger.err("Server must be started before creating devices", .{});
-        return zupnp.Error;
+    if (self.scpd_endpoint == null) {
+        // TODO this is stupidly hacky
+        var server = @fieldParentPtr(zupnp.ZUPnP, "device_manager", self).server;
+        self.scpd_endpoint = try server.createEndpoint(ScpdEndpoint, .{ .allocator = &self.arena.allocator }, ScpdEndpoint.base_url);
     }
 
     var instance = try self.arena.allocator.create(T);
     errdefer self.arena.allocator.destroy(instance);
 
+    var arena = ArenaAllocator.init(&self.arena.allocator);
+    defer arena.deinit();
+
+    const service_definitions = try instance.prepare(&arena.allocator, config);
     const udn = "udn:TODO";
-    const service_list = try instance.prepare(&self.arena.allocator, udn, config);
-    defer self.arena.allocator.free(service_list);
+    const service_list = try arena.allocator.alloc(zupnp.upnp.ServiceDefinition, service_definitions.len);
+    for (service_definitions) |service_definition, i| {
+        const scpd_url = try self.scpd_endpoint.?.addFile(udn, service_definition.service_id, service_definition.scpd_xml);
+        service_list[i] = .{
+            .service = .{
+                .serviceType = service_definition.service_type,
+                .serviceId = service_definition.service_id,
+                .SCPDURL = scpd_url,
+                .controlURL = try std.fmt.allocPrint(&arena.allocator, "/control/{s}/{s}", .{udn, service_definition.service_id}),
+                .eventSubURL = try std.fmt.allocPrint(&arena.allocator, "/event/{s}/{s}", .{udn, service_definition.service_id}),
+            }
+        };
+    }
 
     const device = zupnp.upnp.Device {
         .root = .{
@@ -73,7 +88,7 @@ pub fn createDevice(
             }
         }
     };
-    const device_document = try zupnp.xml.encode(&self.arena.allocator, device);
+    const device_document = try zupnp.xml.encode(&arena.allocator, device);
     defer device_document.deinit();
     var device_str = try device_document.toString();
     defer device_str.deinit();
@@ -102,6 +117,46 @@ pub fn createDevice(
 }
 
 fn onEvent(event_type: c.Upnp_EventType, event: ?*const c_void, cookie: ?*c_void) callconv(.C) c_int {
-    // TODO
+    switch (event_type) {
+        .UPNP_CONTROL_ACTION_REQUEST => {
+            const action = @ptrCast(*const c.UpnpActionRequest, event);
+            const action_name = c.UpnpActionRequest_get_ActionName_cstr(action)[0..c.UpnpActionRequest_get_ActionName_Length(action)];
+            logger.info("Received action {s}", .{action_name});
+        },
+        else => logger.debug("Unhandled event type {s}", .{@tagName(event_type)})
+    }
     return 0;
 }
+
+const ScpdEndpoint = struct {
+    const base_url = "/scpd";
+
+    allocator: *Allocator,
+    xml_files: std.StringHashMap([]const u8),
+
+    pub fn prepare(self: *ScpdEndpoint, config: struct { allocator: *Allocator }) !void {
+        self.allocator = config.allocator;
+        self.xml_files = std.StringHashMap([]const u8).init(config.allocator);
+    }
+
+    pub fn addFile(
+        self: *ScpdEndpoint,
+        udn: []const u8,
+        service_id: []const u8,
+        contents: []const u8
+    ) ![]const u8 {
+        const url = try std.fmt.allocPrint(self.allocator, "{s}/{s}/{s}", .{base_url, udn, service_id});
+        logger.info("Registered {s}", .{url});
+        try self.xml_files.put(url, contents);
+        return url;
+    }
+
+    pub fn get(self: *ScpdEndpoint, request: *const zupnp.web.ServerGetRequest) zupnp.web.ServerResponse {
+        logger.info("Requested URL is {s}", .{request.filename});
+        return if (self.xml_files.get(request.filename)) |contents|
+            .{ .Contents = .{ .content_type = "text/xml", .contents = contents } }
+        else
+            .{ .NotFound = {} }
+        ;
+    }
+};
