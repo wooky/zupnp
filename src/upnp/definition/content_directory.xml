@@ -6,6 +6,36 @@
     </specVersion>
     <actionList>
         <action>
+            <name>GetSearchCapabilities</name>
+            <argumentList>
+                <argument>
+                    <name>SearchCaps</name>
+                    <direction>out</direction>
+                    <relatedStateVariable>SearchCapabilities</relatedStateVariable>
+                </argument>
+            </argumentList>
+        </action>
+        <action>
+            <name>GetSortCapabilities</name>
+            <argumentList>
+                <argument>
+                    <name>SortCaps</name>
+                    <direction>out</direction>
+                    <relatedStateVariable>SortCapabilities</relatedStateVariable>
+                </argument>
+            </argumentList>
+        </action>
+        <action>
+            <name>GetSystemUpdateID</name>
+            <argumentList>
+                <argument>
+                    <name>Id</name>
+                    <direction>out</direction>
+                    <relatedStateVariable>SystemUpdateID</relatedStateVariable>
+                </argument>
+            </argumentList>
+        </action>
+        <action>
             <name>Browse</name>
             <argumentList>
                 <argument>
@@ -96,6 +126,18 @@
         </stateVariable>
         <stateVariable sendEvents="no">
             <name>A_ARG_TYPE_UpdateID</name>
+            <dataType>ui4</dataType>
+        </stateVariable>
+        <stateVariable sendEvents="no">
+            <name>SearchCapabilities</name>
+            <dataType>string</dataType>
+        </stateVariable>
+        <stateVariable sendEvents="no">
+            <name>SortCapabilities</name>
+            <dataType>string</dataType>
+        </stateVariable>
+        <stateVariable sendEvents="yes">
+            <name>SystemUpdateID</name>
             <dataType>ui4</dataType>
         </stateVariable>
     </serviceStateTable>

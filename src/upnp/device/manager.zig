@@ -9,24 +9,28 @@ const logger = std.log.scoped(.@"zupnp.upnp.device.Manager");
 
 const RegisteredDevice = struct {
     const DeinitFn = fn(*c_void)void;
+    const HandleActionFn = fn(*c_void, zupnp.upnp.device.ActionRequest) zupnp.upnp.device.ActionResult;
 
     instance: *c_void,
     deinitFn: ?DeinitFn,
+    handleActionFn: HandleActionFn,
 };
+const DeviceMap = std.StringHashMap(RegisteredDevice);
 
 arena: ArenaAllocator,
-devices: std.ArrayList(RegisteredDevice),
+devices: DeviceMap,
 scpd_endpoint: ?*ScpdEndpoint = null,
 
 pub fn init(allocator: *Allocator) Manager {
     return .{
         .arena = ArenaAllocator.init(allocator),
-        .devices = std.ArrayList(RegisteredDevice).init(allocator),
+        .devices = DeviceMap.init(allocator),
     };
 }
 
 pub fn deinit(self: *Manager) void {
-    for (self.devices.items) |dev| {
+    var devices_iter = self.devices.valueIterator();
+    while (devices_iter.next) |dev| {
         if (dev.deinitFn) |deinitFn| {
             deinitFn(dev.instance);
         }
@@ -93,11 +97,12 @@ pub fn createDevice(
     var device_str = try device_document.toString();
     defer device_str.deinit();
 
-    try self.devices.append(.{
+    try self.devices.putNoClobber(udn, .{
         .instance = @ptrCast(*c_void, instance),
         .deinitFn = c.mutateCallback(T, "deinit", RegisteredDevice.DeinitFn),
+        .handleActionFn = c.mutateCallback(T, "handleAction", RegisteredDevice.HandleActionFn).?,
     });
-    errdefer { _ = self.devices.pop(); }
+    errdefer { _ = self.devices.remove(udn); }
 
     var handle: c.UpnpDevice_Handle = undefined; // TODO store this somewhere
     if (c.is_error(c.UpnpRegisterRootDevice2(
@@ -106,7 +111,7 @@ pub fn createDevice(
         device_str.string.len,
         1, // TODO wtf does this do?
         onEvent,
-        @ptrCast(*const c_void, &self.devices.items[self.devices.items.len - 1]),
+        @ptrCast(*const c_void, self.devices.getPtr(udn).?),
         &handle)))
     |err| {
         logger.err("Failed to register device: {s}", .{err});
@@ -117,15 +122,25 @@ pub fn createDevice(
 }
 
 fn onEvent(event_type: c.Upnp_EventType, event: ?*const c_void, cookie: ?*c_void) callconv(.C) c_int {
+    var device = c.mutate(*RegisteredDevice, cookie);
     switch (event_type) {
-        .UPNP_CONTROL_ACTION_REQUEST => {
-            const action = @ptrCast(*const c.UpnpActionRequest, event);
-            const action_name = c.UpnpActionRequest_get_ActionName_cstr(action)[0..c.UpnpActionRequest_get_ActionName_Length(action)];
-            logger.info("Received action {s}", .{action_name});
-        },
+        .UPNP_CONTROL_ACTION_REQUEST => onAction(device, event),
         else => logger.debug("Unhandled event type {s}", .{@tagName(event_type)})
     }
     return 0;
+}
+
+fn onAction(device: *RegisteredDevice, event: ?*const c_void) void {
+    var action_request = c.mutate(*c.UpnpActionRequest, event);
+    const action = zupnp.upnp.device.ActionRequest { .handle = action_request };
+    const udn = action.getDeviceUdn();
+    var result: zupnp.upnp.device.ActionResult = device.handleActionFn(device.instance, action);
+    defer result.deinit();
+    
+    if (result.action_result) |action_result| {
+        _ = c.UpnpActionRequest_set_ActionResult(action_request, action_result.handle);
+    }
+    _ = c.UpnpActionRequest_set_ErrCode(action_request, result.err_code);
 }
 
 const ScpdEndpoint = struct {

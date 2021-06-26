@@ -4,15 +4,23 @@ const zupnp = @import("../../lib.zig");
 
 const logger = std.log.scoped(.@"zupnp.upnp.device.action");
 
+pub fn ActionFunction(comptime T: type) type {
+    return fn(*T, ActionRequest) anyerror!ActionResult;
+}
+
 pub const ActionRequest = struct {
     handle: *const c.UpnpActionRequest,
 
+    pub fn getDeviceUdn(self: *const ActionRequest) [:0]const u8 {
+        return c.UpnpActionRequest_get_DevUDN_cstr(self.handle)[0..c.UpnpActionRequest_get_DevUDN_Length(self.handle):0];
+    }
+
     pub fn getServiceId(self: *const ActionRequest) [:0]const u8 {
-        return c.UpnpActionRequest_get_ServiceID_cstr(self.handle)[0..c.UpnpActionRequest_get_ServiceID_Length(self.handle)];
+        return c.UpnpActionRequest_get_ServiceID_cstr(self.handle)[0..c.UpnpActionRequest_get_ServiceID_Length(self.handle):0];
     }
 
     pub fn getActionName(self: *const ActionRequest) [:0]const u8 {
-        return c.UpnpActionRequest_get_ActionName_cstr(self.handle)[0..c.UpnpActionRequest_get_ActionName_Length(self.handle)];
+        return c.UpnpActionRequest_get_ActionName_cstr(self.handle)[0..c.UpnpActionRequest_get_ActionName_Length(self.handle):0];
     }
 
     pub fn getActionRequest(self: *const ActionRequest) zupnp.xml.Document {
@@ -28,7 +36,7 @@ pub const ActionResult = struct {
         var doc: ?*c.IXML_Document = null;
         inline for (@typeInfo(@TypeOf(arguments)).Struct.fields) |field| {
             comptime const key = field.name ++ "\x00";
-            if (c.is_error(c.UpnpAddToActionResponse(&doc, action_name, service_type, name, @field(arguments, key)))) |err| {
+            if (c.is_error(c.UpnpAddToActionResponse(&doc, action_name, service_type, key, @field(arguments, field.name)))) |err| {
                 logger.err("Cannot create response: {s}", .{err});
                 return zupnp.Error;
             }
@@ -44,5 +52,11 @@ pub const ActionResult = struct {
             .action_result = null,
             .err_code = err_code,
         };
+    }
+
+    pub fn deinit(self: *ActionResult) void {
+        if (self.action_result) |action_result| {
+            action_result.deinit();
+        }
     }
 };
