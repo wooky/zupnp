@@ -1,6 +1,6 @@
 const std = @import("std");
 const zupnp = @import("../../lib.zig");
-const DeviceServiceDefinition = zupnp.upnp.DeviceServiceDefinition;
+const DeviceServiceDefinition = zupnp.upnp.definition.DeviceServiceDefinition;
 
 const MediaServer = @This();
 const logger = std.log.scoped(.@"zupnp.upnp.device.MediaServer");
@@ -19,6 +19,6 @@ const ContentDirectory = struct {
     pub const service_definition = DeviceServiceDefinition {
         .service_type = "urn:schemas-upnp-org:service:ContentDirectory:1",
         .service_id = "urn:upnp-org:serviceId:ContentDirectory",
-        .scpd_xml = @embedFile("content-directory.xml"),
+        .scpd_xml = @embedFile("../definition/content_directory.xml"),
     };
 };

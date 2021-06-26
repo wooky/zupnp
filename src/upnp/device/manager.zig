@@ -38,7 +38,7 @@ pub fn deinit(self: *Manager) void {
 pub fn createDevice(
     self: *Manager,
     comptime T: type,
-    device_parameters: zupnp.upnp.UserDefinedDeviceParameters,
+    device_parameters: zupnp.upnp.definition.UserDefinedDeviceParameters,
     config: anytype,
 ) !*T {
     if (self.scpd_endpoint == null) {
@@ -55,7 +55,7 @@ pub fn createDevice(
 
     const service_definitions = try instance.prepare(&arena.allocator, config);
     const udn = "udn:TODO";
-    const service_list = try arena.allocator.alloc(zupnp.upnp.ServiceDefinition, service_definitions.len);
+    const service_list = try arena.allocator.alloc(zupnp.upnp.definition.ServiceDefinition, service_definitions.len);
     for (service_definitions) |service_definition, i| {
         const scpd_url = try self.scpd_endpoint.?.addFile(udn, service_definition.service_id, service_definition.scpd_xml);
         service_list[i] = .{
@@ -69,7 +69,7 @@ pub fn createDevice(
         };
     }
 
-    const device = zupnp.upnp.Device {
+    const device = zupnp.upnp.definition.Device {
         .root = .{
             .device = .{
                 .deviceType = T.device_type,
