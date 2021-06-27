@@ -51,11 +51,13 @@ pub const BrowseInput = struct {
     SortCriteria: [:0]const u8,
 };
 
+// TODO some of the fields are not stringy, however the ActionResult function does not accept non-string fields.
+// Revert to string when that gets implemented.
 pub const BrowseOutput = struct {
     Result: [:0]const u8,
-    NumberReturned: u32,
-    TotalMatches: u32,
-    UpdateID: u32,
+    NumberReturned: [:0]const u8, // u32
+    TotalMatches: [:0]const u8, // u32
+    UpdateID: [:0]const u8, // u32
 };
 
 // http://www.upnp.org/schemas/av/didl-lite-v2.xsd
@@ -66,32 +68,36 @@ pub const DIDLLite = struct {
             @"xmlns:dc": []const u8 = "http://purl.org/dc/elements/1.1/",
             @"xmlns:upnp": []const u8 = "urn:schemas-upnp-org:metadata-1-0/upnp/",
             xmlns: []const u8 = "urn:schemas-upnp-org:metadata-1-0/DIDL-Lite/",
-        },
-
+        } = .{},
+        // container: ?[]Container = null,
+        item: ?[]Item = null,
     }
 };
 
+// TODO some of these attributes are []const u8, even though they should be numeric.
+// Currently our XML implementation doesn't support numeric attributes.
+// Change back to numeric when implementation is made.
 pub const Item = struct {
     __attributes__: struct {
-        id: usize,
-        parentID: usize,
-        restricted: bool,
-        refID: ?usize = null,
+        id: []const u8, // usize
+        parentID: []const u8 = "0", // usize
+        restricted: []const u8 = "0", // bool TODO bool needs to be converted to 0 or 1
+        refID: ?[]const u8 = null, // ?usize
     },
     @"dc:title": []const u8,
-    @"upnp.class": []const u8,
+    @"upnp:class": []const u8,
     res: struct {
         __attributes__: struct {
             protocolInfo: []const u8,
             importUri: ?[]const u8 = null,
-            size: ?usize = null,
+            size: ?[]const u8 = null, // ?usize
             duration: ?[]const u8 = null,
-            bitrate: ?usize = null,
-            sampleFrequency: ?usize = null,
-            bitsPerSample: ?u8 = null,
-            nrAudioChannels: ?u8 = null,
+            bitrate: ?[]const u8 = null, // ?usize
+            sampleFrequency: ?[]const u8 = null, // ?usize
+            bitsPerSample: ?[]const u8 = null, // ?u8
+            nrAudioChannels: ?[]const u8 = null, // ?u8
             resolution: ?[]const u8 = null,
-            colorDepth: ?u8 = null,
+            colorDepth: ?[]const u8 = null, // ?u8
             protection: ?[]const u8 = null,
         },
         __item__: []const u8,

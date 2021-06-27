@@ -47,7 +47,8 @@ pub fn createDevice(
 ) !*T {
     if (self.scpd_endpoint == null) {
         // TODO this is stupidly hacky
-        var server = @fieldParentPtr(zupnp.ZUPnP, "device_manager", self).server;
+        // and yeah it has to be a pointer, otherwise it'll copy the server object
+        var server = &@fieldParentPtr(zupnp.ZUPnP, "device_manager", self).server;
         self.scpd_endpoint = try server.createEndpoint(ScpdEndpoint, .{ .allocator = &self.arena.allocator }, ScpdEndpoint.base_url);
     }
 
@@ -57,10 +58,11 @@ pub fn createDevice(
     var arena = ArenaAllocator.init(&self.arena.allocator);
     defer arena.deinit();
 
-    const service_definitions = try instance.prepare(&arena.allocator, config);
+    var service_definitions = std.ArrayList(zupnp.upnp.definition.DeviceServiceDefinition).init(&arena.allocator);
+    try instance.prepare(&self.arena.allocator, config, &service_definitions);
     const udn = "udn:TODO";
-    const service_list = try arena.allocator.alloc(zupnp.upnp.definition.ServiceDefinition, service_definitions.len);
-    for (service_definitions) |service_definition, i| {
+    const service_list = try arena.allocator.alloc(zupnp.upnp.definition.ServiceDefinition, service_definitions.items.len);
+    for (service_definitions.items) |service_definition, i| {
         const scpd_url = try self.scpd_endpoint.?.addFile(udn, service_definition.service_id, service_definition.scpd_xml);
         service_list[i] = .{
             .service = .{
@@ -135,7 +137,6 @@ fn onAction(device: *RegisteredDevice, event: ?*const c_void) void {
     const action = zupnp.upnp.device.ActionRequest { .handle = action_request };
     const udn = action.getDeviceUdn();
     var result: zupnp.upnp.device.ActionResult = device.handleActionFn(device.instance, action);
-    defer result.deinit();
     
     if (result.action_result) |action_result| {
         _ = c.UpnpActionRequest_set_ActionResult(action_request, action_result.handle);

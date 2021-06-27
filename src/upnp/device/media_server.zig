@@ -1,4 +1,5 @@
 const std = @import("std");
+const Allocator = std.mem.Allocator;
 const zupnp = @import("../../lib.zig");
 const ActionRequest = zupnp.upnp.device.ActionRequest;
 const ActionResult = zupnp.upnp.device.ActionResult;
@@ -12,12 +13,10 @@ pub const device_type = "urn:schemas-upnp-org:device:MediaServer:1";
 bogus: bool, // TODO remove me
 content_directory: ContentDirectory,
 
-pub fn prepare(self: *MediaServer, allocator: *std.mem.Allocator, config: void) ![]DeviceServiceDefinition {
-    self.content_directory = ContentDirectory.init();
+pub fn prepare(self: *MediaServer, allocator: *std.mem.Allocator, config: void, service_list: *std.ArrayList(DeviceServiceDefinition)) !void {
+    self.content_directory = ContentDirectory.init(allocator);
 
-    var service_list = try allocator.alloc(DeviceServiceDefinition, 1);
-    service_list[0] = ContentDirectory.service_definition;
-    return service_list;
+    try service_list.append(ContentDirectory.service_definition);
 }
 
 pub fn handleAction(self: *MediaServer, request: ActionRequest) ActionResult {
@@ -50,9 +49,18 @@ const ContentDirectory = struct {
     const logger = std.log.scoped(.@"zupnp.upnp.device.MediaServer.ContentDirectory");
 
     usingnamespace zupnp.upnp.definition.content_directory;
+    // const ContainerList = std.ArrayList(Container);
+    const ItemList = std.ArrayList(Item);
 
-    pub fn init() ContentDirectory {
-        return .{};
+    allocator: *Allocator,
+    // containers: ContainerList,
+    items: ItemList,
+
+    pub fn init(allocator: *Allocator) ContentDirectory {
+        return .{
+            .allocator = allocator,
+            .items = ItemList.init(allocator),
+        };
     }
 
     pub fn handleAction(self: *ContentDirectory, request: ActionRequest) ActionResult {
@@ -86,7 +94,21 @@ const ContentDirectory = struct {
     }
 
     fn browse(self: *ContentDirectory, request: ActionRequest) !ActionResult {
-        logger.info("Browse()", .{});
-        return ActionResult.createError(Error.NoSuchObject.toErrorCode());
+        var count_buf: [8]u8 = undefined;
+        var count = try std.fmt.bufPrintZ(&count_buf, "{d}", .{self.items.items.len});
+        var didl = try zupnp.xml.encode(self.allocator, DIDLLite {
+            .@"DIDL-Lite" = .{
+                .item = self.items.items,
+            }
+        });
+        defer didl.deinit();
+        var didl_str = try didl.toString();
+        defer didl_str.deinit();
+        return ActionResult.createResult(Browse, service_definition.service_type, BrowseOutput {
+            .Result = didl_str.string,
+            .NumberReturned = count,
+            .TotalMatches = count,
+            .UpdateID = "0",
+        });
     }
 };
