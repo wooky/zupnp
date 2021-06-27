@@ -59,7 +59,7 @@ pub fn handleInt(self: *Writer, comptime name: []const u8, input: anytype, paren
 }
 
 pub fn handleBool(self: *Writer, comptime name: []const u8, input: anytype, parent: xml.Element) !void {
-    var text = try self.doc.createTextNode(if (input.*) "true" else "false");
+    var text = try self.doc.createTextNode(if (input.*) "1" else "0");
     try parent.appendChild(text);
 }
 
