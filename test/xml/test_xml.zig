@@ -35,7 +35,7 @@ test "encoding to XML" {
             var wacky_child = try doc.createElement("wacky:child");
             try element1.appendChild(wacky_child);
 
-            var wacky_child_text = try doc.createTextNode("true");
+            var wacky_child_text = try doc.createTextNode("1");
             try wacky_child.appendChild(wacky_child_text);
         }
     }
@@ -102,7 +102,7 @@ test "decoding from XML" {
 
     const wacky_child = (try element1.getElementsByTagName("wacky:child").getSingleItem()).Element;
     const wacky_child_text = (try wacky_child.getFirstChild()).?.TextNode;
-    try testing.expectEqualStrings("true", wacky_child_text.getValue());
+    try testing.expectEqualStrings("1", wacky_child_text.getValue());
 
     const bogus_children = element1.getElementsByTagName("bogus");
     try testing.expectEqual(@as(usize, 0), bogus_children.getLength());

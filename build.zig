@@ -1,19 +1,44 @@
 const std = @import("std");
 const Builder = std.build.Builder;
 
-pub fn build(b: *Builder) void {
-    const lib_path = b.option([]const u8, "LIB_PATH", "Path to Linux libraries") orelse "/usr/lib/x86_64-linux-gnu";
+const Paths = struct {
+    upnp_header_path: ?[]const u8,
+    ixml_header_path: ?[]const u8,
+    upnp_lib_path: []const u8,
+    ixml_lib_path: []const u8,
+};
 
+pub fn queryPaths(b: *Builder) Paths {
+    return Paths {
+        .upnp_header_path = b.option([]const u8, "UPNP_HEADER_PATH", "Path to libupnp headers"),
+        .ixml_header_path = b.option([]const u8, "IXML_HEADER_PATH", "Path to libixml headers"),
+        .upnp_lib_path = b.option([]const u8, "UPNP_LIB_PATH", "Path to libupnp library") orelse "/usr/lib/x86_64-linux-gnu",
+        .ixml_lib_path = b.option([]const u8, "IXML_LIB_PATH", "Path to libixml library") orelse "/usr/lib/x86_64-linux-gnu",
+    };
+}
+
+pub fn populateStep(step: *std.build.LibExeObjStep, paths: Paths) void {
+    step.linkLibC();
+    step.linkSystemLibrary("upnp");
+    step.linkSystemLibrary("ixml");
+    if (paths.upnp_header_path) |upnp_header_path| step.addIncludeDir(upnp_header_path);
+    if (paths.ixml_header_path) |ixml_header_path| step.addIncludeDir(ixml_header_path);
+    step.addLibPath(paths.upnp_lib_path);
+    step.addLibPath(paths.ixml_lib_path);
+}
+
+pub fn build(b: *Builder) void {
+    const paths = queryPaths(b);
     const mode = b.standardReleaseOptions();
     const lib = b.addStaticLibrary("zupnp", "src/lib.zig");
     lib.setBuildMode(mode);
     lib.install();
 
-    var main_tests = addTest(b, mode, lib_path);
+    var main_tests = addTest(b, mode, paths);
     const test_step = b.step("test", "Run library tests");
     test_step.dependOn(&main_tests.step);
 
-    var docs_tests = addTest(b, mode, lib_path);
+    var docs_tests = addTest(b, mode, paths);
     docs_tests.emit_docs = true;
     docs_tests.emit_bin = false;
     docs_tests.output_dir = "docs";
@@ -21,13 +46,10 @@ pub fn build(b: *Builder) void {
     docs_step.dependOn(&docs_tests.step);
 }
 
-fn addTest(b: *Builder, mode: std.builtin.Mode, lib_path: []const u8) *std.build.LibExeObjStep {
+fn addTest(b: *Builder, mode: std.builtin.Mode, paths: Paths) *std.build.LibExeObjStep {
     var tests = b.addTest("test/tests.zig");
     tests.setBuildMode(mode);
     tests.addPackagePath("zupnp", "src/lib.zig");
-    tests.linkLibC();
-    tests.linkSystemLibrary("upnp");
-    tests.linkSystemLibrary("ixml");
-    tests.addLibPath(lib_path);
+    populateStep(tests, paths);
     return tests;
 }
