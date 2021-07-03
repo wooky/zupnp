@@ -4,6 +4,7 @@ pub const xml = @import("xml/index.zig");
 
 pub const Error = error.UPnPError;
 
+/// Main library. Required for most components.
 pub const ZUPnP = struct {
     const c = @import("c.zig");
     const std = @import("std");
@@ -11,13 +12,19 @@ pub const ZUPnP = struct {
 
     const logger = std.log.scoped(.@"zupnp.Zupnp");
 
+    /// Initialization config. Contains reasonable defaults, so it's fine to leave out.
     pub const Config = struct {
+        /// Interface name to use. Defaults to first suitable interface.
         if_name: ?[:0]const u8 = null,
+        /// Port number to use. Defaults to an "arbitrary" port.
+        /// In practice, starts at 49152 and counts upwards until it find a free port.
         port: u16 = 0,
     };
 
     allocator: *Allocator,
+    /// Device manager.
     device_manager: upnp.device.Manager,
+    /// Embedded web server.
     server: web.Server,
 
     pub fn init(allocator: *Allocator, config: Config) !ZUPnP {

@@ -240,6 +240,5 @@ fn fetchRequestCookie(ptr: ?*const c_void) *RequestCookie {
 }
 
 fn fetchPostRequest(ptr: c.UpnpWebFileHandle) *zupnp.web.ServerPostRequest {
-    // return @ptrCast(*zupnp.web.ServerPostRequest, @alignCast(@alignOf(*zupnp.web.ServerPostRequest), ptr));
     return c.mutate(*zupnp.web.ServerPostRequest, ptr);
 }

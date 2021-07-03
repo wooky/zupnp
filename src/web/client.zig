@@ -1,3 +1,8 @@
+//! HTTP client, use to download contents from a URL.
+//! In order to use HTTPS, libupnp must be built with OpenSSL support.
+//! If you're using the libupnp library provided by your distro, it's most likely that there's no HTTPS support.
+//! In which case, any calls to request a HTTPS URL will return with an invalid URL error.
+
 const std = @import("std");
 const c = @import("../c.zig");
 const zupnp = @import("../lib.zig");
@@ -16,8 +21,11 @@ pub const Handle = struct {
     }
 };
 
+/// How long to wait for request, in seconds. Set to null to wait indefinitely.
 timeout: ?c_int = null,
+
 // keepalive: bool = false,
+
 handle: Handle = .{},
 
 pub fn init() Client {
@@ -28,6 +36,7 @@ pub fn deinit(self: *Client) void {
     self.close();
 }
 
+/// Make an HTTP request and wait until all contents are downloaded. Caller owns the response object, and should call `deinit()` on it when done.
 pub fn request(self: *Client, allocator: *std.mem.Allocator, method: zupnp.web.Method, url: [:0]const u8, client_request: zupnp.web.ClientRequest) !zupnp.web.ClientResponse {
     var chunked_response = try self.chunkedRequest(method, url, client_request);
     defer chunked_response.cancel();
@@ -48,6 +57,7 @@ pub fn request(self: *Client, allocator: *std.mem.Allocator, method: zupnp.web.M
     };
 }
 
+/// Make an HTTP request and get a chunked response.
 pub fn chunkedRequest(self: *Client, method: zupnp.web.Method, url: [:0]const u8, client_request: zupnp.web.ClientRequest) !zupnp.web.ChunkedClientResponse {
     const timeout = self.timeout orelse -1;
     if (c.is_error(c.UpnpOpenHttpConnection(url, &self.handle.handle, timeout))) |err| {
@@ -94,6 +104,7 @@ pub fn chunkedRequest(self: *Client, method: zupnp.web.Method, url: [:0]const u8
     };
 }
 
+/// Close connection to remote server, if any currently exists.
 pub fn close(self: *Client) void {
     self.handle.close();
 }

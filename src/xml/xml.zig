@@ -32,9 +32,8 @@ fn AbstractNode(comptime NodeType: type) type {
     };
 }
 
+/// Generic XML node.
 pub const Node = union(enum) {
-    //! Generic XML node
-
     Document: Document,
     Element: Element,
     TextNode: TextNode,
@@ -53,21 +52,20 @@ pub const Node = union(enum) {
     }
 };
 
+/// XML document.
 pub const Document = struct {
-    //! XML document
-
     usingnamespace AbstractNode(Document);
 
     handle: *c.IXML_Document,
 
-    /// Create an empty document
+    /// Create an empty document.
     pub fn new() !Document {
         var handle: [*c]c.IXML_Document = undefined;
         try check(c.ixmlDocument_createDocumentEx(&handle), "Failed to create document", "err");
         return Document.init(handle);
     }
 
-    /// Parse document from sentinel-terminated string
+    /// Parse document from sentinel-terminated string.
     pub fn fromString(doc: [:0]const u8) !Document {
         var handle: [*c]c.IXML_Document = undefined;
         try check(c.ixmlParseBufferEx(doc, &handle), "Cannot parse document from string", "warn");
@@ -111,9 +109,8 @@ pub const Document = struct {
     }
 };
 
+/// XML element.
 pub const Element = struct {
-    //! XML element
-
     usingnamespace AbstractNode(Element);
 
     handle: *c.IXML_Element,
@@ -122,7 +119,7 @@ pub const Element = struct {
         return Element { .handle = handle };
     }
 
-    /// Get the tag name of this element
+    /// Get the tag name of this element.
     pub fn getTagName(self: *const Element) [:0]const u8 {
         return std.mem.sliceTo(c.ixmlElement_getTagName(), 0);
     }
@@ -156,9 +153,8 @@ pub const Element = struct {
     }
 };
 
+/// XML text node, which only contains a string value.
 pub const TextNode = struct {
-    //! XML text node, which only contains a string value.
-
     usingnamespace AbstractNode(TextNode);
 
     handle: *c.IXML_Node,
@@ -178,9 +174,8 @@ pub const TextNode = struct {
     }
 };
 
+/// List of generic nodes belonging to a parent node.
 pub const NodeList = struct {
-    //! List of generic nodes belonging to a parent node
-
     handle: ?*c.IXML_NodeList,
 
     pub fn init(handle: ?*c.IXML_NodeList) NodeList {
@@ -223,9 +218,8 @@ pub const NodeList = struct {
         return Iterator.init(self);
     }
 
+    /// Read-only node list iterator
     pub const Iterator = struct {
-        //! Read-only node list iterator
-
         node_list: *const NodeList,
         length: usize,
         idx: usize = 0,
@@ -249,9 +243,8 @@ pub const NodeList = struct {
     };
 };
 
+/// Attributes for some XML element.
 pub const AttributeMap = struct {
-    //! Attributes for some XML element
-
     handle: *c.IXML_NamedNodeMap,
 
     pub fn init(handle: *c.IXML_NamedNodeMap) AttributeMap {
@@ -267,8 +260,8 @@ pub const AttributeMap = struct {
     }
 };
 
+/// A specially allocated string. You must call `deinit()` when you're done with it.
 pub const DOMString = struct {
-    //! A specially allocated string. You must call `deinit()` when you're done with it.
 
     /// The actual string.
     string: [:0]const u8,
