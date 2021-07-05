@@ -3,6 +3,16 @@ pub usingnamespace @cImport({
     @cInclude("upnptools.h");
 });
 
+pub const Version = enum {
+    VERSION_1_8,
+    VERSION_1_14,
+};
+pub const version: Version = comptime switch (UPNP_VERSION_MINOR) {
+    8 => .VERSION_1_8,
+    14 => .VERSION_1_14,
+    else => @compileError("Unsupported pupnp version " ++ UPNP_VERSION_STRING)
+};
+
 pub fn is_error(err: c_int) ?[:0]const u8 {
     if (err == UPNP_E_SUCCESS) {
         return null;
