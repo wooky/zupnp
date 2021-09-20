@@ -56,11 +56,22 @@ pub const ServerPostRequest = struct {
     filename: [:0]const u8,
 
     /// Contents sent by the client.
-    contents: std.ArrayList(u8),
+    contents: []const u8,
 };
 
 /// HTTP response to send back to the client.
 pub const ServerResponse = union(enum) {
+    pub const Contents = struct {
+        /// TODO unused
+        headers: [][]const u8 = &[_][]const u8{},
+
+        /// Content type.
+        content_type: ?[:0]const u8 = null,
+
+        /// Contents
+        contents: []const u8 = "",
+    };
+
     /// 404 Not Found.
     NotFound: void,
 
@@ -71,16 +82,7 @@ pub const ServerResponse = union(enum) {
     Chunked: void,
 
     /// Full contents.
-    Contents: struct {
-        /// TODO unused
-        headers: [][]const u8 = &[_][]const u8{},
-
-        /// Content type.
-        content_type: ?[:0]const u8 = null,
-
-        /// Contents
-        contents: []const u8 = "",
-    },
+    Contents: Contents,
 };
 
 /// HTTP method to make a request.

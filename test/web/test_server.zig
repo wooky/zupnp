@@ -112,7 +112,7 @@ test "GET/POST endpoint" {
 
         pub fn post(self: *Self, request: *const zupnp.web.ServerPostRequest) bool {
             testing.allocator.free(self.last_message);
-            self.last_message = testing.allocator.dupe(u8, request.contents.items) catch |e| @panic(@errorName(e));
+            self.last_message = testing.allocator.dupe(u8, request.contents) catch |e| @panic(@errorName(e));
             return true;
         }
     };
