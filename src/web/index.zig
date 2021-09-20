@@ -1,9 +1,11 @@
 const std = @import("std");
 const c = @import("../c.zig");
 
-pub const ClientResponse = @import("client_response.zig");
 pub const Client = @import("client.zig");
 pub const Server = @import("server.zig");
+
+pub const ClientResponse = @import("client_response.zig");
+pub const ServerResponse = @import("server_response.zig").ServerResponse;
 
 /// Additional parameters to send to the server when making an HTTP request.
 pub const ClientRequest = struct {
@@ -36,32 +38,6 @@ pub const ServerPostRequest = struct {
 
     /// Contents sent by the client.
     contents: []const u8,
-};
-
-/// HTTP response to send back to the client.
-pub const ServerResponse = union(enum) {
-    pub const Contents = struct {
-        /// TODO unused
-        headers: [][]const u8 = &[_][]const u8{},
-
-        /// Content type.
-        content_type: ?[:0]const u8 = null,
-
-        /// Contents
-        contents: []const u8 = "",
-    };
-
-    /// 404 Not Found.
-    NotFound: void,
-
-    /// 403 Forbidden.
-    Forbidden: void,
-
-    /// TODO unused
-    Chunked: void,
-
-    /// Full contents.
-    Contents: Contents,
 };
 
 /// HTTP method to make a request.

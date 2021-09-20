@@ -50,13 +50,13 @@ test "GET endpoint" {
         pub fn get(self: *Self, request: *const zupnp.web.ServerGetRequest) zupnp.web.ServerResponse {
             const action = request.filename[std.mem.lastIndexOf(u8, request.filename, "/").? + 1 ..];
             if (std.mem.eql(u8, action, "NotFound")) {
-                return .{ .NotFound = {} };
+                return zupnp.web.ServerResponse.notFound();
             }
             if (std.mem.eql(u8, action, "Forbidden")) {
-                return .{ .Forbidden = {} };
+                return zupnp.web.ServerResponse.forbidden();
             }
             const contents = std.fmt.allocPrint(request.allocator, "Hello {s}", .{action}) catch |e| @panic(@errorName(e));
-            return .{ .Contents = .{ .contents = contents, .content_type = "text/plain" } }; // TODO remove content type once the client stops crashing
+            return zupnp.web.ServerResponse.contents(.{ .contents = contents, .content_type = "text/plain" }); // TODO remove content type once the client stops crashing
         }
     };
 
@@ -106,7 +106,7 @@ test "GET/POST endpoint" {
         }
 
         pub fn get(self: *Self, request: *const zupnp.web.ServerGetRequest) zupnp.web.ServerResponse {
-            return .{ .Contents = .{ .contents = self.last_message, .content_type = "text/plain" } }; // TODO remove content type once the client stops crashing
+            return zupnp.web.ServerResponse.contents(.{ .contents = self.last_message, .content_type = "text/plain" }); // TODO remove content type once the client stops crashing
         }
 
         pub fn post(self: *Self, request: *const zupnp.web.ServerPostRequest) bool {
@@ -156,7 +156,7 @@ test "HEAD requests cleans up after itself" {
 
         pub fn get(self: *Self, request: *const zupnp.web.ServerGetRequest) zupnp.web.ServerResponse {
             _ = request.allocator.alloc(u8, 1024) catch |e| @panic(@errorName(e));
-            return .{ .Contents = .{ .contents = "whatever", .content_type = "text/plain" } }; // TODO remove content type once the client stops crashing
+            return zupnp.web.ServerResponse.contents(.{ .contents = "whatever", .content_type = "text/plain" }); // TODO remove content type once the client stops crashing
         }
     };
 

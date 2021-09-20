@@ -9,7 +9,7 @@ test "simple requests" {
         bogus: bool = true, // TODO remove me
 
         pub fn get(self: *Self, request: *const zupnp.web.ServerGetRequest) zupnp.web.ServerResponse {
-            return .{ .Contents = .{ .contents = "Hello", .content_type = "something/else" } };
+            return zupnp.web.ServerResponse.contents(.{ .contents = "Hello", .content_type = "something/else" });
         }
 
         pub fn post(self: *Self, request: *const zupnp.web.ServerPostRequest) bool {
@@ -71,7 +71,7 @@ test "chunked request" {
         bogus: bool = true, // TODO remove me
 
         pub fn get(self: *Self, request: *const zupnp.web.ServerGetRequest) zupnp.web.ServerResponse {
-            return .{ .Contents = .{ .contents = "onetwothree", .content_type = "text/plain" } };
+            return zupnp.web.ServerResponse.contents(.{ .contents = "onetwothree", .content_type = "text/plain" });
         }
     };
 

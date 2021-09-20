@@ -34,7 +34,7 @@ pub const GetRequestCookie = struct {
     arena: ArenaAllocator,
     contents: []const u8,
 
-    pub fn createRequestCookie(arena: *ArenaAllocator, contents: *const zupnp.web.ServerResponse.Contents) !*RequestCookie {
+    pub fn createRequestCookie(arena: *ArenaAllocator, contents: *const zupnp.web.ServerResponse.ContentsInternal) !*RequestCookie {
         var req = try arena.allocator.create(RequestCookie);
         req.* = .{ .Get = .{
             .arena = arena.*,

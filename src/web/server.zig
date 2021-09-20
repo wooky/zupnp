@@ -121,7 +121,6 @@ fn getInfo(filename_c: [*c]const u8, info: ?*c.UpnpFileInfo, cookie: ?*const c_v
     switch (response) {
         .NotFound => return_code = -1,
         .Forbidden => is_readable = false,
-        .Chunked => {},
         .Contents => |cnt| blk: {
             req_cookie = request.GetRequestCookie.createRequestCookie(&arena, &cnt) catch |err| {
                 logger.err("Failed to create GET request cookie: {s}", .{err});
