@@ -36,29 +36,8 @@ pub fn deinit(self: *Client) void {
     self.close();
 }
 
-/// Make an HTTP request and wait until all contents are downloaded. Caller owns the response object, and should call `deinit()` on it when done.
-pub fn request(self: *Client, allocator: *std.mem.Allocator, method: zupnp.web.Method, url: [:0]const u8, client_request: zupnp.web.ClientRequest) !zupnp.web.ClientResponse {
-    var chunked_response = try self.chunkedRequest(method, url, client_request);
-    defer chunked_response.cancel();
-
-    const content_type = if (chunked_response.content_type) |ct| try allocator.dupeZ(u8, ct) else null;
-    var buf = std.ArrayList(u8).init(allocator);
-    defer buf.deinit();
-    var chunk: [1024]u8 = undefined;
-    while (try chunked_response.readChunk(&chunk)) |chunk_read| {
-        try buf.appendSlice(chunk_read);
-    }
-    const contents = try buf.toOwnedSliceSentinel(0);
-    return zupnp.web.ClientResponse {
-        .allocator = allocator,
-        .http_status = chunked_response.http_status,
-        .content_type = content_type,
-        .contents = contents,
-    };
-}
-
-/// Make an HTTP request and get a chunked response.
-pub fn chunkedRequest(self: *Client, method: zupnp.web.Method, url: [:0]const u8, client_request: zupnp.web.ClientRequest) !zupnp.web.ChunkedClientResponse {
+/// Make an HTTP request and get a response.
+pub fn request(self: *Client, method: zupnp.web.Method, url: [:0]const u8, client_request: zupnp.web.ClientRequest) !zupnp.web.ClientResponse {
     const timeout = self.timeout orelse -1;
     if (c.is_error(c.UpnpOpenHttpConnection(url, &self.handle.handle, timeout))) |err| {
         logger.err("Failed opening HTTP connection: {s}", .{err});
@@ -89,13 +68,14 @@ pub fn chunkedRequest(self: *Client, method: zupnp.web.Method, url: [:0]const u8
     var content_type: [*c]u8 = undefined;
     var content_length: c_int = undefined;
     // TODO crash occurs here if no content type is set
+    // TODO be aware that content type is only valid for the duration of the connection
     if (c.is_error(c.UpnpGetHttpResponse(self.handle.handle, null, &content_type, &content_length, &http_status, timeout))) |err| {
         logger.err("Failed getting HTTP response: {s}", .{err});
         return zupnp.Error;
     }
     var content_type_slice = if (content_type != null) std.mem.sliceTo(content_type, 0) else null;
 
-    return zupnp.web.ChunkedClientResponse {
+    return zupnp.web.ClientResponse {
         .http_status = http_status,
         .content_type = content_type_slice,
         .content_length = if (content_length < 0) null else @intCast(u32, content_length),

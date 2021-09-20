@@ -1,7 +1,7 @@
 const std = @import("std");
 const c = @import("../c.zig");
 
-pub const ChunkedClientResponse = @import("chunked_client_response.zig");
+pub const ClientResponse = @import("client_response.zig");
 pub const Client = @import("client.zig");
 pub const Server = @import("server.zig");
 
@@ -15,27 +15,6 @@ pub const ClientRequest = struct {
 
     /// Contents to send to the server.
     contents: []const u8 = "",
-};
-
-/// HTTP response received from a server.
-pub const ClientResponse = struct {
-    allocator: *std.mem.Allocator,
-
-    /// HTTP status code.
-    http_status: c_int,
-
-    /// Content type.
-    content_type: ?[:0]const u8,
-
-    /// Contents.
-    contents: [:0]const u8,
-
-    pub fn deinit(self: *ClientResponse) void {
-        self.allocator.free(self.contents);
-        if (self.content_type) |ct| {
-            self.allocator.free(ct);
-        }
-    }
 };
 
 /// HTTP request sent by a client to a GET endpoint.

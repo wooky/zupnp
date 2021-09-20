@@ -28,38 +28,39 @@ test "simple requests" {
     const url = try std.fmt.bufPrintZ(&buf, "{s}{s}", .{lib.server.base_url, dest});
 
     {
-        var response = try client.request(testing.allocator, .GET, url, .{});
-        defer response.deinit();
+        var response = try client.request(.GET, url, .{});
         try testing.expectEqual(@as(c_int, 200), response.http_status);
         try testing.expectEqualStrings("something/else", response.content_type.?);
-        try testing.expectEqualStrings("Hello", response.contents);
+        const contents = try response.readAll(testing.allocator);
+        defer testing.allocator.free(contents);
+        try testing.expectEqualStrings("Hello", contents);
     }
 
     {
-        var response = try client.request(testing.allocator, .POST, url, .{});
-        defer response.deinit();
+        var response = try client.request(.POST, url, .{});
         try testing.expectEqual(@as(c_int, 200), response.http_status);
-        try testing.expectEqualStrings("", response.contents);
+        const contents = try response.readAll(testing.allocator);
+        defer testing.allocator.free(contents);
+        try testing.expectEqualStrings("", contents);
     }
 
     {
-        var response = try client.request(testing.allocator, .PUT, url, .{});
-        defer response.deinit();
+        var response = try client.request(.PUT, url, .{});
         try testing.expectEqual(@as(c_int, 501), response.http_status);
     }
 
     {
-        var response = try client.request(testing.allocator, .DELETE, url, .{});
-        defer response.deinit();
+        var response = try client.request(.DELETE, url, .{});
         try testing.expectEqual(@as(c_int, 500), response.http_status);
     }
 
     {
-        var response = try client.request(testing.allocator, .HEAD, url, .{});
-        defer response.deinit();
+        var response = try client.request(.HEAD, url, .{});
         try testing.expectEqual(@as(c_int, 200), response.http_status);
         try testing.expectEqualStrings("something/else", response.content_type.?);
-        try testing.expectEqualStrings("", response.contents);
+        const contents = try response.readAll(testing.allocator);
+        defer testing.allocator.free(contents);
+        try testing.expectEqualStrings("", contents);
     }
 }
 
@@ -84,7 +85,7 @@ test "chunked request" {
     var buf: [64]u8 = undefined;
     const url = try std.fmt.bufPrintZ(&buf, "{s}{s}", .{lib.server.base_url, dest});
 
-    var request = try client.chunkedRequest(.GET, url, .{});
+    var request = try client.request(.GET, url, .{});
     try testing.expectEqual(@as(c_int, 200), request.http_status);
     try testing.expectEqualStrings("text/plain", request.content_type.?);
     try testing.expectEqual(@as(u32, 11), request.content_length.?);
