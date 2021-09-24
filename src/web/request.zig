@@ -24,6 +24,7 @@ pub const Endpoint = struct {
 
 pub const RequestCookie = union (enum) {
     Get: GetRequestCookie,
+    Chunked: ChunkedRequestCookie,
 
     pub fn fromVoidPointer(ptr: ?*const c_void) *RequestCookie {
         return c.mutate(*RequestCookie, ptr);
@@ -57,9 +58,42 @@ pub const GetRequestCookie = struct {
     }
 };
 
+pub const ChunkedRequestCookie = struct {
+    arena: ArenaAllocator,
+    handler: zupnp.web.ServerResponse.ChunkedInternal.Handler,
+
+    pub fn createRequestCookie(arena: *ArenaAllocator, chunked: *const zupnp.web.ServerResponse.ChunkedInternal) !*RequestCookie {
+        var req = try arena.allocator.create(RequestCookie);
+        req.* = .{ .Chunked = .{
+            .arena = arena.*,
+            .handler = chunked.handler,
+        } };
+        return req;
+    }
+
+    pub fn deinit(self: *ChunkedRequestCookie) void {
+        std.debug.print("hi 2\n", .{});
+        if (self.handler.deinitFn) |deinitFn| {
+            deinitFn(self.handler.instance);
+        }
+        std.debug.print("hi 3\n", .{});
+        self.arena.deinit();
+    }
+
+    pub fn toRequest(self: *ChunkedRequestCookie) !*Request {
+        var req = try self.arena.allocator.create(Request);
+        req.* = .{ .Chunked = .{
+            .request_cookie = self,
+            .seek_pos = 0,
+        } };
+        return req;
+    }
+};
+
 pub const Request = union (enum) {
     Get: GetRequest,
     Post: PostRequest,
+    Chunked: ChunkedRequest,
 
     pub fn fromFileHandle(hnd: c.UpnpWebFileHandle) *Request {
         return c.mutate(*Request, hnd);
@@ -157,6 +191,46 @@ pub const PostRequest = struct {
             .contents = self.contents.items,
         };
         _ = (self.endpoint.postFn.?)(self.endpoint.instance, &server_request);
+        return 0;
+    }
+};
+
+pub const ChunkedRequest = struct {
+    request_cookie: *ChunkedRequestCookie,
+    seek_pos: usize,
+
+    pub fn deinit(self: *ChunkedRequest, parent: *Request) void {
+        std.debug.print("hi 1\n", .{});
+        self.request_cookie.deinit();
+        // Parent gets destroyed inside request_cookie's arena
+    }
+
+    pub fn read(self: *ChunkedRequest, buf: [*c]u8, buflen: usize) callconv(.C) c_int {
+        return @intCast(c_int, self.request_cookie.handler.getChunkFn(self.request_cookie.handler.instance, buf[0..buflen], self.seek_pos));
+    }
+
+    pub fn seek(self: *ChunkedRequest, offset: c.off_t, origin: c_int) callconv(.C) c_int {
+        self.seek_pos = @intCast(usize, offset + switch (origin) {
+            c.SEEK_CUR => @intCast(c_long, self.seek_pos),
+            c.SEEK_SET => 0,
+            c.SEEK_END => {
+                logger.err("Unexpected SEEK_END for chunked request", .{});
+                return -1;
+            },
+            else => {
+                logger.err("Unexpected chunked seek origin type {d}", .{origin});
+                return -1;
+            }
+        });
+        return 0;
+    }
+
+    pub fn write(self: *ChunkedRequest, buf: [*c]u8, buflen: usize) callconv(.C) c_int {
+        logger.err("Called write() on chunked request", .{});
+        return -1;
+    }
+
+    pub fn close(self: *ChunkedRequest) callconv(.C) c_int {
         return 0;
     }
 };

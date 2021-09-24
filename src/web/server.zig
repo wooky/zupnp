@@ -40,6 +40,7 @@ pub fn deinit(self: *Server) void {
     self.arena.deinit();
 }
 
+/// FIXME if endpoint is created and Server (or ZUPnP) object's address is changed, a crash is guaranteed when making a request to that endpoint.
 pub fn createEndpoint(self: *Server, comptime T: type, config: anytype, destination: [:0]const u8) !*T {
     var instance = try self.arena.allocator.create(T);
     errdefer self.arena.allocator.destroy(instance);
@@ -130,7 +131,17 @@ fn getInfo(filename_c: [*c]const u8, info: ?*c.UpnpFileInfo, cookie: ?*const c_v
                 logger.debug("ContentType err {d}", .{c.UpnpFileInfo_set_ContentType(info, content_type)});
             }
             logger.debug("FileLength err {d}", .{c.UpnpFileInfo_set_FileLength(info, @intCast(c_long, cnt.contents.len))});
-        }
+        },
+        .Chunked => |chk| blk: {
+            req_cookie = request.ChunkedRequestCookie.createRequestCookie(&arena, &chk) catch |err| {
+                logger.err("Failed to create chunked request cookie: {s}", .{err});
+                break :blk;
+            };
+            if (chk.content_type) |content_type| {
+                logger.debug("ContentType err {d}", .{c.UpnpFileInfo_set_ContentType(info, content_type)});
+            }
+            logger.debug("FileLength err {d}", .{c.UpnpFileInfo_set_FileLength(info, c.UPNP_USING_CHUNKED)});
+        },
     }
 
     logger.debug("IsReadable err {d}", .{c.UpnpFileInfo_set_IsReadable(info, @boolToInt(is_readable))});
@@ -167,6 +178,7 @@ fn open(filename_c: [*c]const u8, mode: c.enum_UpnpOpenFileMode, cookie: ?*const
     var req_cookie = request.RequestCookie.fromVoidPointer(request_cookie);
     const req = switch (req_cookie.*) {
         .Get => |*get| get.toRequest(),
+        .Chunked => |*chunked| chunked.toRequest(),
     } catch |err| {
         logger.err("Failed to create GET request object: {s}", .{err});
         return null;
@@ -177,18 +189,22 @@ fn open(filename_c: [*c]const u8, mode: c.enum_UpnpOpenFileMode, cookie: ?*const
 // TODO all of the following functions should have their switch statements replaced with some comptime magic
 
 fn read(file_handle: c.UpnpWebFileHandle, buf: [*c]u8, buflen: usize, cookie: ?*const c_void, request_cookie: ?*const c_void) callconv(.C) c_int {
+    logger.warn("sup {*}", .{file_handle});
     const req = request.Request.fromFileHandle(file_handle);
     return switch (req.*) {
         .Get => |*get| get.read(buf, buflen),
         .Post => |*post| post.read(buf, buflen),
+        .Chunked => |*chunked| chunked.read(buf, buflen),
     };
 }
 
 fn seek(file_handle: c.UpnpWebFileHandle, offset: c.off_t, origin: c_int, cookie: ?*const c_void, request_cookie: ?*const c_void) callconv(.C) c_int {
+    logger.warn("yo {*}", .{file_handle});
     const req = request.Request.fromFileHandle(file_handle);
     return switch (req.*) {
         .Get => |*get| get.seek(offset, origin),
         .Post => |*post| post.seek(offset, origin),
+        .Chunked => |*chunked| chunked.seek(offset, origin),
     };
 }
 
@@ -197,10 +213,12 @@ fn write(file_handle: c.UpnpWebFileHandle, buf: [*c]u8, buflen: usize, cookie: ?
     return switch (req.*) {
         .Get => |*get| get.write(buf, buflen),
         .Post => |*post| post.write(buf, buflen),
+        .Chunked => |*chunked| chunked.write(buf, buflen),
     };
 }
 
 fn close(file_handle: c.UpnpWebFileHandle, cookie: ?*const c_void, request_cookie: ?*const c_void) callconv(.C) c_int {
+    logger.warn("heya {*}", .{file_handle});
     const req = request.Request.fromFileHandle(file_handle);
     return switch (req.*) {
         .Get => |*get| {
@@ -211,5 +229,9 @@ fn close(file_handle: c.UpnpWebFileHandle, cookie: ?*const c_void, request_cooki
             defer post.deinit(req);
             return post.close();
         },
+        .Chunked => |*chunked| {
+            defer chunked.deinit(req);
+            return chunked.close();
+        }
     };
 }

@@ -178,3 +178,64 @@ test "HEAD requests cleans up after itself" {
         try testing.expectEqualStrings("", contents);
     }
 }
+
+test "chunked response" {
+    const ChunkGenerator = struct {
+        const Self = @This();
+
+        bogus: bool = true, // TODO remove me
+
+        pub fn getChunk(self: *Self, buf: []u8, offset: usize) usize {
+            var idx: usize = 0;
+            var i = offset;
+            while (idx < buf.len) {
+                const number = std.fmt.bufPrint(buf[idx..], "{d}", .{i}) catch |e| @panic(@errorName(e));
+                idx += number.len;
+                i += 1;
+            }
+            return idx;
+        }
+    };
+
+    const GetEndpoint = struct {
+        const Self = @This();
+
+        bogus: bool = true, // TODO remove me
+
+        pub fn get(self: *Self, request: *const zupnp.web.ServerGetRequest) zupnp.web.ServerResponse {
+            const generator = request.allocator.create(ChunkGenerator) catch |e| @panic(@errorName(e));
+            return zupnp.web.ServerResponse.chunked(.{ .content_type = "text/plain" }, generator); // TODO remove content type once the client stops crashing
+        }
+    };
+
+    var lib = try zupnp.ZUPnP.init(testing.allocator, .{});
+    defer lib.deinit();
+    const dest = "/chunk";
+    _ = try lib.server.createEndpoint(GetEndpoint, {}, dest);
+    try lib.server.start();
+    var client = zupnp.web.Client.init();
+    defer client.deinit();
+    var buf: [64]u8 = undefined;
+    const url = try std.fmt.bufPrintZ(&buf, "{s}{s}", .{lib.server.base_url, dest});
+
+    var response = try client.request(.GET, url, .{});
+    try testing.expectEqual(@as(?u32, null), response.content_length);
+
+    {
+        var contents_buf: [1]u8 = undefined;
+        const contents = try response.readChunk(&contents_buf);
+        try testing.expectEqualStrings("0", contents.?);
+    }
+
+    {
+        var contents_buf: [8]u8 = undefined;
+        const contents = try response.readChunk(&contents_buf);
+        try testing.expectEqualStrings("12345678", contents.?);
+    }
+
+    {
+        var contents_buf: [43]u8 = undefined;
+        const contents = try response.readChunk(&contents_buf);
+        try testing.expectEqualStrings("9101112131415161718192021222324252627282930", contents.?);
+    }
+}
