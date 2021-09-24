@@ -2,16 +2,16 @@ const std = @import("std");
 const Builder = std.build.Builder;
 
 const Paths = struct {
-    upnp_header_path: ?[]const u8,
-    ixml_header_path: ?[]const u8,
+    upnp_header_path: []const u8,
+    ixml_header_path: []const u8,
     upnp_lib_path: []const u8,
     ixml_lib_path: []const u8,
 };
 
 pub fn queryPaths(b: *Builder) Paths {
     return Paths {
-        .upnp_header_path = b.option([]const u8, "UPNP_HEADER_PATH", "Path to libupnp headers"),
-        .ixml_header_path = b.option([]const u8, "IXML_HEADER_PATH", "Path to libixml headers"),
+        .upnp_header_path = b.option([]const u8, "UPNP_HEADER_PATH", "Path to libupnp headers") orelse "/usr/include/upnp",
+        .ixml_header_path = b.option([]const u8, "IXML_HEADER_PATH", "Path to libixml headers") orelse "/usr/include/upnp",
         .upnp_lib_path = b.option([]const u8, "UPNP_LIB_PATH", "Path to libupnp library") orelse "/usr/lib/x86_64-linux-gnu",
         .ixml_lib_path = b.option([]const u8, "IXML_LIB_PATH", "Path to libixml library") orelse "/usr/lib/x86_64-linux-gnu",
     };
@@ -21,8 +21,8 @@ pub fn populateStep(step: *std.build.LibExeObjStep, paths: Paths) void {
     step.linkLibC();
     step.linkSystemLibrary("upnp");
     step.linkSystemLibrary("ixml");
-    if (paths.upnp_header_path) |upnp_header_path| step.addIncludeDir(upnp_header_path);
-    if (paths.ixml_header_path) |ixml_header_path| step.addIncludeDir(ixml_header_path);
+    step.addIncludeDir(paths.upnp_header_path);
+    step.addIncludeDir(paths.ixml_header_path);
     step.addLibPath(paths.upnp_lib_path);
     step.addLibPath(paths.ixml_lib_path);
 }

@@ -65,7 +65,7 @@ pub const ServerResponse = union(enum) {
         } };
     }
 
-    /// Create a 206 Partial Response with chunked contents.
+    /// Create a 200 OK response with chunked (i.e. streaming) contents.
     pub fn chunked(parameters: ChunkedParameters, handler: anytype) ServerResponse {
         comptime const HandlerType = @typeInfo(@TypeOf(handler)).Pointer.child;
         return .{ .Chunked = .{
