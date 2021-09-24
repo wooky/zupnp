@@ -189,7 +189,6 @@ fn open(filename_c: [*c]const u8, mode: c.enum_UpnpOpenFileMode, cookie: ?*const
 // TODO all of the following functions should have their switch statements replaced with some comptime magic
 
 fn read(file_handle: c.UpnpWebFileHandle, buf: [*c]u8, buflen: usize, cookie: ?*const c_void, request_cookie: ?*const c_void) callconv(.C) c_int {
-    logger.warn("sup {*}", .{file_handle});
     const req = request.Request.fromFileHandle(file_handle);
     return switch (req.*) {
         .Get => |*get| get.read(buf, buflen),
@@ -199,7 +198,6 @@ fn read(file_handle: c.UpnpWebFileHandle, buf: [*c]u8, buflen: usize, cookie: ?*
 }
 
 fn seek(file_handle: c.UpnpWebFileHandle, offset: c.off_t, origin: c_int, cookie: ?*const c_void, request_cookie: ?*const c_void) callconv(.C) c_int {
-    logger.warn("yo {*}", .{file_handle});
     const req = request.Request.fromFileHandle(file_handle);
     return switch (req.*) {
         .Get => |*get| get.seek(offset, origin),
@@ -218,7 +216,6 @@ fn write(file_handle: c.UpnpWebFileHandle, buf: [*c]u8, buflen: usize, cookie: ?
 }
 
 fn close(file_handle: c.UpnpWebFileHandle, cookie: ?*const c_void, request_cookie: ?*const c_void) callconv(.C) c_int {
-    logger.warn("heya {*}", .{file_handle});
     const req = request.Request.fromFileHandle(file_handle);
     return switch (req.*) {
         .Get => |*get| {

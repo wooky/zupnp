@@ -41,7 +41,8 @@ pub const ZUPnP = struct {
     }
 
     pub fn deinit(self: *ZUPnP) void {
-        self.server.deinit();
+        // Must be in this order, otherwise HTTP requests currently processing will crash due to threading issues!
         _ = c.UpnpFinish();
+        self.server.deinit();
     }
 };

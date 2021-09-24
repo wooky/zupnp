@@ -219,6 +219,7 @@ test "chunked response" {
     const url = try std.fmt.bufPrintZ(&buf, "{s}{s}", .{lib.server.base_url, dest});
 
     var response = try client.request(.GET, url, .{});
+    try testing.expectEqual(@as(c_int, 200), response.http_status);
     try testing.expectEqual(@as(?u32, null), response.content_length);
 
     {

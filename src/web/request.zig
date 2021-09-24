@@ -72,11 +72,9 @@ pub const ChunkedRequestCookie = struct {
     }
 
     pub fn deinit(self: *ChunkedRequestCookie) void {
-        std.debug.print("hi 2\n", .{});
         if (self.handler.deinitFn) |deinitFn| {
             deinitFn(self.handler.instance);
         }
-        std.debug.print("hi 3\n", .{});
         self.arena.deinit();
     }
 
@@ -200,7 +198,6 @@ pub const ChunkedRequest = struct {
     seek_pos: usize,
 
     pub fn deinit(self: *ChunkedRequest, parent: *Request) void {
-        std.debug.print("hi 1\n", .{});
         self.request_cookie.deinit();
         // Parent gets destroyed inside request_cookie's arena
     }
