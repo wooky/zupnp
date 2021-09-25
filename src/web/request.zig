@@ -22,76 +22,45 @@ pub const Endpoint = struct {
     }
 };
 
-pub const RequestCookie = union (enum) {
-    Get: GetRequestCookie,
-    Chunked: ChunkedRequestCookie,
+pub const RequestCookie = struct {
+    arena: ArenaAllocator,
+    request: union (enum) {
+        Get: GetRequest,
+        Chunked: ChunkedRequest,
+    },
+
+    pub fn create(allocator: *std.mem.Allocator) !*RequestCookie {
+        var req = try allocator.create(RequestCookie);
+        req.* = .{
+            .arena = ArenaAllocator.init(allocator),
+            .request = undefined,
+        };
+        return req;
+    }
 
     pub fn fromVoidPointer(ptr: ?*const c_void) *RequestCookie {
         return c.mutate(*RequestCookie, ptr);
     }
-};
 
-pub const GetRequestCookie = struct {
-    arena: ArenaAllocator,
-    contents: []const u8,
-
-    pub fn createRequestCookie(arena: *ArenaAllocator, contents: *const zupnp.web.ServerResponse.ContentsInternal) !*RequestCookie {
-        var req = try arena.allocator.create(RequestCookie);
-        req.* = .{ .Get = .{
-            .arena = arena.*,
-            .contents = contents.contents,
-        } };
-        return req;
-    }
-
-    pub fn deinit(self: *GetRequestCookie) void {
+    pub fn deinit(self: *RequestCookie) void {
         self.arena.deinit();
+        self.arena.child_allocator.destroy(self);
     }
 
-    pub fn toRequest(self: *GetRequestCookie) !*Request {
+    pub fn toRequest(self: *RequestCookie) !*Request {
         var req = try self.arena.allocator.create(Request);
-        req.* = .{ .Get = .{
-            .request_cookie = self,
-            .seek_pos = 0,
-        } };
-        return req;
-    }
-};
-
-pub const ChunkedRequestCookie = struct {
-    arena: ArenaAllocator,
-    handler: zupnp.web.ServerResponse.ChunkedInternal.Handler,
-
-    pub fn createRequestCookie(arena: *ArenaAllocator, chunked: *const zupnp.web.ServerResponse.ChunkedInternal) !*RequestCookie {
-        var req = try arena.allocator.create(RequestCookie);
-        req.* = .{ .Chunked = .{
-            .arena = arena.*,
-            .handler = chunked.handler,
-        } };
-        return req;
-    }
-
-    pub fn deinit(self: *ChunkedRequestCookie) void {
-        if (self.handler.deinitFn) |deinitFn| {
-            deinitFn(self.handler.instance);
-        }
-        self.arena.deinit();
-    }
-
-    pub fn toRequest(self: *ChunkedRequestCookie) !*Request {
-        var req = try self.arena.allocator.create(Request);
-        req.* = .{ .Chunked = .{
-            .request_cookie = self,
-            .seek_pos = 0,
-        } };
+        req.* = switch (self.request) {
+            .Get => |*get| .{ .Get = get },
+            .Chunked => |*chunked| .{ .Chunked = chunked },
+        };
         return req;
     }
 };
 
 pub const Request = union (enum) {
-    Get: GetRequest,
+    Get: *GetRequest,
     Post: PostRequest,
-    Chunked: ChunkedRequest,
+    Chunked: *ChunkedRequest,
 
     pub fn fromFileHandle(hnd: c.UpnpWebFileHandle) *Request {
         return c.mutate(*Request, hnd);
@@ -103,24 +72,30 @@ pub const Request = union (enum) {
 };
 
 pub const GetRequest = struct {
-    request_cookie: *GetRequestCookie,
+    contents: []const u8,
     seek_pos: usize,
 
-    pub fn deinit(self: *GetRequest, parent: *Request) void {
-        self.request_cookie.deinit();
-        // Parent gets destroyed inside request_cookie's arena
+    pub fn init(contents: []const u8) GetRequest {
+        return .{
+            .contents = contents,
+            .seek_pos = 0,
+        };
+    }
+
+    pub fn deinit(self: *GetRequest) void {
+        // Do nothing.
     }
 
     pub fn read(self: *GetRequest, buf: [*c]u8, buflen: usize) callconv(.C) c_int {
-        const bytes_written = std.math.max(buflen, self.request_cookie.contents.len - self.seek_pos);
-        std.mem.copy(u8, buf[0..buflen], self.request_cookie.contents[self.seek_pos..self.seek_pos + bytes_written]);
+        const bytes_written = std.math.max(buflen, self.contents.len - self.seek_pos);
+        std.mem.copy(u8, buf[0..buflen], self.contents[self.seek_pos..self.seek_pos + bytes_written]);
         return @intCast(c_int, bytes_written);
     }
 
     pub fn seek(self: *GetRequest, offset: c.off_t, origin: c_int) callconv(.C) c_int {
         self.seek_pos = @intCast(usize, offset + switch (origin) {
             c.SEEK_CUR => @intCast(c_long, self.seek_pos),
-            c.SEEK_END => @intCast(c_long, self.request_cookie.contents.len),
+            c.SEEK_END => @intCast(c_long, self.contents.len),
             c.SEEK_SET => 0,
             else => {
                 logger.err("Unexpected GET seek origin type {d}", .{origin});
@@ -157,9 +132,8 @@ pub const PostRequest = struct {
         return req;
     }
 
-    pub fn deinit(self: *PostRequest, parent: *Request) void {
+    pub fn deinit(self: *PostRequest) void {
         self.contents.deinit();
-        self.endpoint.allocator.destroy(parent);
     }
 
     pub fn read(self: *PostRequest, buf: [*c]u8, buflen: usize) callconv(.C) c_int {
@@ -194,16 +168,22 @@ pub const PostRequest = struct {
 };
 
 pub const ChunkedRequest = struct {
-    request_cookie: *ChunkedRequestCookie,
+    handler: zupnp.web.ServerResponse.ChunkedInternal.Handler,
     seek_pos: usize,
 
-    pub fn deinit(self: *ChunkedRequest, parent: *Request) void {
-        self.request_cookie.deinit();
-        // Parent gets destroyed inside request_cookie's arena
+    pub fn init(handler: zupnp.web.ServerResponse.ChunkedInternal.Handler) ChunkedRequest {
+        return .{
+            .handler = handler,
+            .seek_pos = 0,
+        };
+    }
+
+    pub fn deinit(self: *ChunkedRequest) void {
+        // Do nothing.
     }
 
     pub fn read(self: *ChunkedRequest, buf: [*c]u8, buflen: usize) callconv(.C) c_int {
-        return @intCast(c_int, self.request_cookie.handler.getChunkFn(self.request_cookie.handler.instance, buf[0..buflen], self.seek_pos));
+        return @intCast(c_int, self.handler.getChunkFn(self.handler.instance, buf[0..buflen], self.seek_pos));
     }
 
     pub fn seek(self: *ChunkedRequest, offset: c.off_t, origin: c_int) callconv(.C) c_int {
