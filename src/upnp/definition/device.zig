@@ -23,7 +23,7 @@ pub const Device = struct {
             modelURL: ?[]const u8 = null,
             serialNumber: ?[]const u8 = null,
             UPC: ?[]const u8 = null,
-            iconList: ?[]Icon = null,
+            iconList: ?[]const Icon = null,
         },
     }
 };
@@ -38,7 +38,7 @@ pub const UserDefinedDeviceParameters = struct {
     modelURL: ?[]const u8 = null,
     serialNumber: ?[]const u8 = null,
     UPC: ?[]const u8 = null,
-    iconList: ?[]Icon = null,
+    iconList: ?[]const Icon = null,
 };
 
 pub const Icon = struct {

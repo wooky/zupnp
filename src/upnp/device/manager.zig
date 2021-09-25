@@ -168,9 +168,9 @@ const ScpdEndpoint = struct {
 
     pub fn get(self: *ScpdEndpoint, request: *const zupnp.web.ServerGetRequest) zupnp.web.ServerResponse {
         return if (self.xml_files.get(request.filename)) |contents|
-            .{ .Contents = .{ .content_type = "text/xml", .contents = contents } }
+            zupnp.web.ServerResponse.contents(.{ .content_type = "text/xml", .contents = contents })
         else
-            .{ .NotFound = {} }
+            zupnp.web.ServerResponse.notFound()
         ;
     }
 };
