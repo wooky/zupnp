@@ -65,25 +65,23 @@ test "GET endpoint" {
     const dest = "/get";
     _ = try lib.server.createEndpoint(GetEndpoint, {}, dest);
     try lib.server.start();
-    var client = zupnp.web.Client.init();
-    defer client.deinit();
     var buf: [64]u8 = undefined;
 
     {
         const url = try std.fmt.bufPrintZ(&buf, "{s}{s}/NotFound", .{lib.server.base_url.?, dest});
-        var response = try client.request(.GET, url, .{});
+        var response = try zupnp.web.request(.GET, url, .{});
         try testing.expectEqual(@as(c_int, 404), response.http_status);
     }
 
     {
         const url = try std.fmt.bufPrintZ(&buf, "{s}{s}/Forbidden", .{lib.server.base_url.?, dest});
-        var response = try client.request(.GET, url, .{});
+        var response = try zupnp.web.request(.GET, url, .{});
         try testing.expectEqual(@as(c_int, 403), response.http_status);
     }
 
     {
         const url = try std.fmt.bufPrintZ(&buf, "{s}{s}/world!", .{lib.server.base_url.?, dest});
-        var response = try client.request(.GET, url, .{});
+        var response = try zupnp.web.request(.GET, url, .{});
         try testing.expectEqual(@as(c_int, 200), response.http_status);
         const contents = try response.readAll(testing.allocator);
         defer testing.allocator.free(contents);
@@ -121,13 +119,11 @@ test "GET/POST endpoint" {
     const dest = "/get-post";
     _ = try lib.server.createEndpoint(GetPostEndpoint, {}, dest);
     try lib.server.start();
-    var client = zupnp.web.Client.init();
-    defer client.deinit();
     var buf: [64]u8 = undefined;
     const url = try std.fmt.bufPrintZ(&buf, "{s}{s}", .{lib.server.base_url, dest});
 
     {
-        var response = try client.request(.GET, url, .{});
+        var response = try zupnp.web.request(.GET, url, .{});
         try testing.expectEqual(@as(c_int, 200), response.http_status);
         const contents = try response.readAll(testing.allocator);
         defer testing.allocator.free(contents);
@@ -135,12 +131,12 @@ test "GET/POST endpoint" {
     }
 
     {
-        var response = try client.request(.POST, url, .{ .contents = "Hello world!" });
+        var response = try zupnp.web.request(.POST, url, .{ .contents = "Hello world!" });
         try testing.expectEqual(@as(c_int, 200), response.http_status);
     }
 
     {
-        var response = try client.request(.GET, url, .{});
+        var response = try zupnp.web.request(.GET, url, .{});
         try testing.expectEqual(@as(c_int, 200), response.http_status);
         const contents = try response.readAll(testing.allocator);
         defer testing.allocator.free(contents);
@@ -165,13 +161,11 @@ test "HEAD requests cleans up after itself" {
     const dest = "/get";
     _ = try lib.server.createEndpoint(GetEndpoint, {}, dest);
     try lib.server.start();
-    var client = zupnp.web.Client.init();
-    defer client.deinit();
     var buf: [64]u8 = undefined;
     const url = try std.fmt.bufPrintZ(&buf, "{s}{s}", .{lib.server.base_url, dest});
 
     {
-        var response = try client.request(.HEAD, url, .{});
+        var response = try zupnp.web.request(.HEAD, url, .{});
         try testing.expectEqual(@as(c_int, 200), response.http_status);
         const contents = try response.readAll(testing.allocator);
         defer testing.allocator.free(contents);
@@ -213,12 +207,11 @@ test "chunked response" {
     const dest = "/chunk";
     _ = try lib.server.createEndpoint(GetEndpoint, {}, dest);
     try lib.server.start();
-    var client = zupnp.web.Client.init();
-    defer client.deinit();
     var buf: [64]u8 = undefined;
     const url = try std.fmt.bufPrintZ(&buf, "{s}{s}", .{lib.server.base_url, dest});
 
-    var response = try client.request(.GET, url, .{});
+    var response = try zupnp.web.request(.GET, url, .{});
+    defer response.cancel(); // Careful!
     try testing.expectEqual(@as(c_int, 200), response.http_status);
     try testing.expectEqual(@as(?u32, null), response.content_length);
 

@@ -22,13 +22,11 @@ test "simple requests" {
     const dest = "/endpoint";
     _ = try lib.server.createEndpoint(Endpoint, {}, dest);
     try lib.server.start();
-    var client = zupnp.web.Client.init();
-    defer client.deinit();
     var buf: [64]u8 = undefined;
     const url = try std.fmt.bufPrintZ(&buf, "{s}{s}", .{lib.server.base_url, dest});
 
     {
-        var response = try client.request(.GET, url, .{});
+        var response = try zupnp.web.request(.GET, url, .{});
         try testing.expectEqual(@as(c_int, 200), response.http_status);
         try testing.expectEqualStrings("something/else", response.content_type.?);
         const contents = try response.readAll(testing.allocator);
@@ -37,7 +35,7 @@ test "simple requests" {
     }
 
     {
-        var response = try client.request(.POST, url, .{});
+        var response = try zupnp.web.request(.POST, url, .{});
         try testing.expectEqual(@as(c_int, 200), response.http_status);
         const contents = try response.readAll(testing.allocator);
         defer testing.allocator.free(contents);
@@ -45,17 +43,17 @@ test "simple requests" {
     }
 
     {
-        var response = try client.request(.PUT, url, .{});
+        var response = try zupnp.web.request(.PUT, url, .{});
         try testing.expectEqual(@as(c_int, 501), response.http_status);
     }
 
     {
-        var response = try client.request(.DELETE, url, .{});
+        var response = try zupnp.web.request(.DELETE, url, .{});
         try testing.expectEqual(@as(c_int, 500), response.http_status);
     }
 
     {
-        var response = try client.request(.HEAD, url, .{});
+        var response = try zupnp.web.request(.HEAD, url, .{});
         try testing.expectEqual(@as(c_int, 200), response.http_status);
         try testing.expectEqualStrings("something/else", response.content_type.?);
         const contents = try response.readAll(testing.allocator);
@@ -80,12 +78,10 @@ test "chunked request" {
     const dest = "/endpoint";
     _ = try lib.server.createEndpoint(Endpoint, {}, dest);
     try lib.server.start();
-    var client = zupnp.web.Client.init();
-    defer client.deinit();
     var buf: [64]u8 = undefined;
     const url = try std.fmt.bufPrintZ(&buf, "{s}{s}", .{lib.server.base_url, dest});
 
-    var request = try client.request(.GET, url, .{});
+    var request = try zupnp.web.request(.GET, url, .{});
     try testing.expectEqual(@as(c_int, 200), request.http_status);
     try testing.expectEqualStrings("text/plain", request.content_type.?);
     try testing.expectEqual(@as(u32, 11), request.content_length.?);

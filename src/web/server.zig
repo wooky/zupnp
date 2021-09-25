@@ -231,4 +231,5 @@ fn close(file_handle: c.UpnpWebFileHandle, cookie: ?*const c_void, request_cooki
             return chunked.close();
         }
     };
+    logger.debug("A connection has been closed", .{});
 }

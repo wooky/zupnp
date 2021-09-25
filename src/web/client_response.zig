@@ -19,7 +19,7 @@ content_length: ?u32,
 
 timeout: c_int,
 // keepalive: bool,
-handle: *zupnp.web.Client.Handle,
+handle: ?*c_void,
 
 /// Read full contents of HTTP request into a memory allocated string.
 /// Caller owns the returned string.
@@ -38,7 +38,7 @@ pub fn readAll(self: *ClientResponse, allocator: *std.mem.Allocator) ![:0]u8 {
 pub fn readChunk(self: *ClientResponse, buf: []u8) !?[]const u8 {
     errdefer self.cancel();
     var size = buf.len;
-    if (c.is_error(c.UpnpReadHttpResponse(self.handle.handle, buf.ptr, &size, self.timeout))) |err| {
+    if (c.is_error(c.UpnpReadHttpResponse(self.handle, buf.ptr, &size, self.timeout))) |err| {
         logger.err("Failed reading HTTP response: {s}", .{err});
         return zupnp.Error;
     }
@@ -51,9 +51,9 @@ pub fn readChunk(self: *ClientResponse, buf: []u8) !?[]const u8 {
 
 /// Cancel the current request and, if keepalive was unset, also closes the connection to the server.
 pub fn cancel(self: *ClientResponse) void {
-    logger.debug("Cancel err {d}", .{c.UpnpCancelHttpGet(self.handle.handle)});
+    logger.debug("Cancel err {d}", .{c.UpnpCancelHttpGet(self.handle)});
     // if (!self.keepalive) {
-        self.handle.close();
+        logger.debug("Close err {d}", .{c.UpnpCloseHttpConnection(self.handle)});
         // Due to the nature of pupnp, once the handle is closed, content type get clobbered
         self.content_type = null;
     // }

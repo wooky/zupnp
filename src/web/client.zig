@@ -7,45 +7,20 @@ const std = @import("std");
 const c = @import("../c.zig");
 const zupnp = @import("../lib.zig");
 
-const Client = @This();
-const logger = std.log.scoped(.@"zupnp.web.Client");
-
-pub const Handle = struct {
-    handle: ?*c_void = null,
-
-    pub fn close(self: *Handle) void {
-        if (self.handle) |handle| {
-            logger.debug("Close err {d}", .{c.UpnpCloseHttpConnection(handle)});
-            self.handle = null;
-        }
-    }
-};
-
-/// How long to wait for request, in seconds. Set to null to wait indefinitely.
-timeout: ?c_int = null,
-
-// keepalive: bool = false,
-
-handle: Handle = .{},
-
-pub fn init() Client {
-    return .{};
-}
-
-pub fn deinit(self: *Client) void {
-    self.close();
-}
-
 /// Make an HTTP request and get a response.
-pub fn request(self: *Client, method: zupnp.web.Method, url: [:0]const u8, client_request: zupnp.web.ClientRequest) !zupnp.web.ClientResponse {
-    const timeout = self.timeout orelse -1;
-    if (c.is_error(c.UpnpOpenHttpConnection(url, &self.handle.handle, timeout))) |err| {
+pub fn request(method: zupnp.web.Method, url: [:0]const u8, client_request: zupnp.web.ClientRequest) !zupnp.web.ClientResponse {
+    const logger = std.log.scoped(.@"zupnp.web.request");
+    logger.debug("Establishing a {s} request to {s}", .{method, url});
+
+    const timeout = client_request.timeout orelse -1;
+    var handle: ?*c_void = undefined;
+    if (c.is_error(c.UpnpOpenHttpConnection(url, &handle, timeout))) |err| {
         logger.err("Failed opening HTTP connection: {s}", .{err});
         return zupnp.Error;
     }
-    errdefer self.handle.close();
+    errdefer logger.debug("Close err {d}", .{c.UpnpCloseHttpConnection(handle)});
 
-    if (c.is_error(c.UpnpMakeHttpRequest(method.toUpnpMethod(), url, self.handle.handle, null, client_request.content_type orelse null, @intCast(c_int, client_request.contents.len), timeout))) |err| {
+    if (c.is_error(c.UpnpMakeHttpRequest(method.toUpnpMethod(), url, handle, null, client_request.content_type orelse null, @intCast(c_int, client_request.contents.len), timeout))) |err| {
         logger.err("Failed making request to HTTP endpoint: {s}", .{err});
         return zupnp.Error;
     }
@@ -53,13 +28,13 @@ pub fn request(self: *Client, method: zupnp.web.Method, url: [:0]const u8, clien
     if (client_request.contents.len > 0) {
         const contents = c.mutate([*c]u8, client_request.contents.ptr);
         var len = client_request.contents.len;
-        if (c.is_error(c.UpnpWriteHttpRequest(self.handle.handle, contents, &len, timeout))) |err| {
+        if (c.is_error(c.UpnpWriteHttpRequest(handle, contents, &len, timeout))) |err| {
             logger.err("Failed writing HTTP contents to endpoint: {s}", .{err});
             return zupnp.Error;
         }
     }
 
-    if (c.is_error(c.UpnpEndHttpRequest(self.handle.handle, timeout))) |err| {
+    if (c.is_error(c.UpnpEndHttpRequest(handle, timeout))) |err| {
         logger.err("Failed finalizing HTTP contents to endpoint: {s}", .{err});
         return zupnp.Error;
     }
@@ -69,7 +44,7 @@ pub fn request(self: *Client, method: zupnp.web.Method, url: [:0]const u8, clien
     var content_length: c_int = undefined;
     // TODO crash occurs here if no content type is set
     // TODO be aware that content type is only valid for the duration of the connection
-    if (c.is_error(c.UpnpGetHttpResponse(self.handle.handle, null, &content_type, &content_length, &http_status, timeout))) |err| {
+    if (c.is_error(c.UpnpGetHttpResponse(handle, null, &content_type, &content_length, &http_status, timeout))) |err| {
         logger.err("Failed getting HTTP response: {s}", .{err});
         return zupnp.Error;
     }
@@ -80,11 +55,6 @@ pub fn request(self: *Client, method: zupnp.web.Method, url: [:0]const u8, clien
         .content_type = content_type_slice,
         .content_length = if (content_length < 0) null else @intCast(u32, content_length),
         .timeout = timeout,
-        .handle = &self.handle,
+        .handle = handle,
     };
-}
-
-/// Close connection to remote server, if any currently exists.
-pub fn close(self: *Client) void {
-    self.handle.close();
 }

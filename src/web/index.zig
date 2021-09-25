@@ -1,7 +1,7 @@
 const std = @import("std");
 const c = @import("../c.zig");
 
-pub const Client = @import("client.zig");
+pub usingnamespace @import("client.zig");
 pub const Server = @import("server.zig");
 
 pub const ClientResponse = @import("client_response.zig");
@@ -17,6 +17,9 @@ pub const ClientRequest = struct {
 
     /// Contents to send to the server.
     contents: []const u8 = "",
+
+    /// How long to wait for request, in seconds. Set to null to wait indefinitely.
+    timeout: ?c_int = null,
 };
 
 /// HTTP request sent by a client to a GET endpoint.
