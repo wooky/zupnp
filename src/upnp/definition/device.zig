@@ -12,7 +12,9 @@ pub const Device = struct {
         device: struct {
             deviceType: []const u8,
             UDN: []const u8,
-            serviceList: []ServiceDefinition,
+            serviceList: struct {
+                service: []const ServiceDefinition,
+            },
             // TODO reference the UserDefinedDeviceParameters struct directly rather than copy-pasting struct elements
             friendlyName: []const u8,
             manufacturer: []const u8,
@@ -23,7 +25,9 @@ pub const Device = struct {
             modelURL: ?[]const u8 = null,
             serialNumber: ?[]const u8 = null,
             UPC: ?[]const u8 = null,
-            iconList: ?[]const Icon = null,
+            iconList: ?struct{
+                icon: []const Icon,
+            } = null,
         },
     }
 };
@@ -42,23 +46,19 @@ pub const UserDefinedDeviceParameters = struct {
 };
 
 pub const Icon = struct {
-    icon: struct {
-        mimetype: []const u8,
-        width: usize,
-        height: usize,
-        depth: u8,
-        url: []const u8,
-    }
+    mimetype: []const u8,
+    width: usize,
+    height: usize,
+    depth: u8,
+    url: []const u8,
 };
 
 pub const ServiceDefinition = struct {
-    service: struct {
-        serviceType: []const u8,
-        serviceId: []const u8,
-        SCPDURL: []const u8,
-        controlURL: []const u8,
-        eventSubURL: []const u8,
-    }
+    serviceType: []const u8,
+    serviceId: []const u8,
+    SCPDURL: []const u8,
+    controlURL: []const u8,
+    eventSubURL: []const u8,
 };
 
 pub const DeviceServiceDefinition = struct {

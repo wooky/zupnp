@@ -65,13 +65,11 @@ pub fn createDevice(
     for (service_definitions.items) |service_definition, i| {
         const scpd_url = try self.scpd_endpoint.?.addFile(udn, service_definition.service_id, service_definition.scpd_xml);
         service_list[i] = .{
-            .service = .{
-                .serviceType = service_definition.service_type,
-                .serviceId = service_definition.service_id,
-                .SCPDURL = scpd_url,
-                .controlURL = try std.fmt.allocPrint(&arena.allocator, "/control/{s}/{s}", .{udn, service_definition.service_id}),
-                .eventSubURL = try std.fmt.allocPrint(&arena.allocator, "/event/{s}/{s}", .{udn, service_definition.service_id}),
-            }
+            .serviceType = service_definition.service_type,
+            .serviceId = service_definition.service_id,
+            .SCPDURL = scpd_url,
+            .controlURL = try std.fmt.allocPrint(&arena.allocator, "/control/{s}/{s}", .{udn, service_definition.service_id}),
+            .eventSubURL = try std.fmt.allocPrint(&arena.allocator, "/event/{s}/{s}", .{udn, service_definition.service_id}),
         };
     }
 
@@ -89,8 +87,12 @@ pub fn createDevice(
                 .modelURL = device_parameters.modelURL,
                 .serialNumber = device_parameters.serialNumber,
                 .UPC = device_parameters.UPC,
-                .iconList = device_parameters.iconList,
-                .serviceList = service_list,
+                .iconList = if (device_parameters.iconList) |iconList| .{
+                    .icon = iconList
+                } else null,
+                .serviceList = .{
+                    .service = service_list,
+                },
             }
         }
     };
