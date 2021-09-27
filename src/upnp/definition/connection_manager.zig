@@ -13,11 +13,15 @@ pub const Error = enum(c_int) {
 };
 
 pub const GetProtocolInfoOutput = struct {
+    pub const action_name = "GetProtocolInfo";
+
     Source: [:0]const u8,
     Sink: [:0]const u8,
 };
 
-pub const GetCurrentConnectionIDsOutput = struct {
+pub const GetCurrentConnectionIdsOutput = struct {
+    pub const action_name = "GetCurrentConnectionIDs";
+
     ConnectionIDs: [:0]const u8,
 };
 
@@ -30,6 +34,8 @@ pub const GetCurrentConnectionInfoInput = struct {
 // TODO some of the fields are not stringy, however the ActionResult function does not accept non-string fields.
 // Revert to string when that gets implemented.
 pub const GetCurrentConnectionInfoOutput = struct {
+    pub const action_name = "GetCurrentConnectionInfo";
+    
     RcsID: [:0]const u8, // i4
     AVTransportID: [:0]const u8, // i4
     ProtocolInfo: [:0]const u8,

@@ -32,7 +32,8 @@ pub const ActionResult = struct {
     action_result: ?zupnp.xml.Document, // DO NOT DEINIT! Used by ActionRequest when returning to client.
     err_code: c_int,
 
-    pub fn createResult(action_name: [:0]const u8, service_type: [:0]const u8, arguments: anytype) !ActionResult {
+    pub fn createResult(service_type: [:0]const u8, arguments: anytype) !ActionResult {
+        comptime const action_name = @TypeOf(arguments).action_name;
         var doc: ?*c.IXML_Document = null;
         inline for (@typeInfo(@TypeOf(arguments)).Struct.fields) |field| {
             comptime const key = field.name ++ "\x00";

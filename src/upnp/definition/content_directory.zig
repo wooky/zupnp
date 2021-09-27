@@ -31,14 +31,20 @@ pub const Error = enum(c_int) {
 };
 
 pub const GetSearchCapabilitiesOutput = struct {
+    pub const action_name = "GetSearchCapabilities";
+
     SearchCaps: [:0]const u8,
 };
 
 pub const GetSortCapabilitiesOutput = struct {
+    pub const action_name = "GetSortCapabilities";
+
     SortCaps: [:0]const u8,
 };
 
 pub const GetSystemUpdateIdOutput = struct {
+    pub const action_name = "GetSystemUpdateID";
+
     Id: [:0]const u8,
 };
 
@@ -54,6 +60,8 @@ pub const BrowseInput = struct {
 // TODO some of the fields are not stringy, however the ActionResult function does not accept non-string fields.
 // Revert to string when that gets implemented.
 pub const BrowseOutput = struct {
+    pub const action_name = "Browse";
+
     Result: [:0]const u8,
     NumberReturned: [:0]const u8, // u32
     TotalMatches: [:0]const u8, // u32
