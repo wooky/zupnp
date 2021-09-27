@@ -1,19 +1,11 @@
-test "web client" {
-    _ = @import("web/test_client.zig");
-}
+test "load tests" {
+    _ = @import("web/test_chunked_get_requests.zig");
+    _ = @import("web/test_get_requests.zig");
+    _ = @import("web/test_misc_responses.zig");
+    _ = @import("web/test_post_requests.zig");
+    _ = @import("web/test_server_internals.zig");
 
-test "web server" {
-    _ = @import("web/test_server.zig");
-}
-
-test "XML library" {
-    _ = @import("xml/test_xml.zig");
-}
-
-test "XML decode" {
     _ = @import("xml/test_decode.zig");
-}
-
-test "XML encode" {
     _ = @import("xml/test_encode.zig");
+    _ = @import("xml/test_xml.zig");
 }
