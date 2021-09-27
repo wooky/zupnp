@@ -14,6 +14,13 @@ const RegisteredDevice = struct {
     instance: *c_void,
     deinitFn: ?DeinitFn,
     handleActionFn: HandleActionFn,
+    device_handle: c.UpnpDevice_Handle = undefined,
+
+    fn deinit(self: *RegisteredDevice) void {
+        if (self.deinitFn) |deinitFn| {
+            deinitFn(self.instance);
+        }
+    }
 };
 const DeviceMap = std.StringHashMap(RegisteredDevice);
 
@@ -31,9 +38,8 @@ pub fn init(allocator: *Allocator) Manager {
 pub fn deinit(self: *Manager) void {
     var devices_iter = self.devices.valueIterator();
     while (devices_iter.next) |dev| {
-        if (dev.deinitFn) |deinitFn| {
-            deinitFn(dev.instance);
-        }
+        dev.deinit();
+        _ = c.UpnpUnRegisterRootDevice(dev.device_handle);
     }
     self.devices.deinit();
     self.arena.deinit();
@@ -101,23 +107,30 @@ pub fn createDevice(
     var device_str = try device_document.toString();
     defer device_str.deinit();
 
-    try self.devices.putNoClobber(udn, .{
+    // Put all of this much earlier than here
+    if (self.devices.contains(udn)) {
+        logger.err("Device {s} is already registered", .{udn});
+        return zupnp.Error;
+    }
+    const entry = try self.devices.getOrPutValue(udn, .{
         .instance = @ptrCast(*c_void, instance),
         .deinitFn = c.mutateCallback(T, "deinit", RegisteredDevice.DeinitFn),
         .handleActionFn = c.mutateCallback(T, "handleAction", RegisteredDevice.HandleActionFn).?,
     });
-    errdefer { _ = self.devices.remove(udn); }
+    errdefer {
+        entry.value_ptr.deinit();
+        _ = self.devices.remove(udn);
+    }
 
-    var handle: c.UpnpDevice_Handle = undefined; // TODO store this somewhere
     if (c.is_error(c.UpnpRegisterRootDevice2(
         .UPNPREG_BUF_DESC,
         device_str.string.ptr,
         device_str.string.len,
         1, // TODO wtf does this do?
         onEvent,
-        @ptrCast(*const c_void, self.devices.getPtr(udn).?),
-        &handle)))
-    |err| {
+        @ptrCast(*const c_void, entry.value_ptr),
+        &entry.value_ptr.device_handle
+    ))) |err| {
         logger.err("Failed to register device: {s}", .{err});
         return zupnp.Error;
     }
@@ -129,7 +142,8 @@ fn onEvent(event_type: c.Upnp_EventType, event: ?*const c_void, cookie: ?*c_void
     var device = c.mutate(*RegisteredDevice, cookie);
     switch (event_type) {
         .UPNP_CONTROL_ACTION_REQUEST => onAction(device, event),
-        else => logger.debug("Unhandled event type {s}", .{@tagName(event_type)})
+        .UPNP_EVENT_SUBSCRIPTION_REQUEST => onEventSubscribe(device, event),
+        else => logger.info("Unhandled event type {s}", .{@tagName(event_type)})
     }
     return 0;
 }
@@ -144,6 +158,22 @@ fn onAction(device: *RegisteredDevice, event: ?*const c_void) void {
         _ = c.UpnpActionRequest_set_ActionResult(action_request, action_result.handle);
     }
     _ = c.UpnpActionRequest_set_ErrCode(action_request, result.err_code);
+}
+
+// TODO
+fn onEventSubscribe(device: *RegisteredDevice, event: ?*const c_void) void {
+    var event_subscribe_request = c.mutate(*c.UpnpSubscriptionRequest, event);
+    if (c.is_error(c.UpnpAcceptSubscription(
+        device.device_handle,
+        c.UpnpSubscriptionRequest_get_UDN_cstr(event_subscribe_request),
+        c.UpnpSubscriptionRequest_get_ServiceId_cstr(event_subscribe_request),
+        null,
+        null,
+        0,
+        "TODO"
+    ))) |err| {
+        logger.warn("Cannot accept subscription: {s}", .{err});
+    }
 }
 
 const ScpdEndpoint = struct {
