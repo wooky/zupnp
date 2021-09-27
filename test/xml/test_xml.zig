@@ -76,7 +76,7 @@ test "encoding to XML" {
         }
     }
 
-    var string = try doc.toString();
+    var string = try doc.toStringWithProlog();
     defer string.deinit();
     try testing.expectEqualStrings(full.file, string.string);
 }

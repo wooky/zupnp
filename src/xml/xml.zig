@@ -9,12 +9,12 @@ fn AbstractNode(comptime NodeType: type) type {
     return struct {
         /// Get all child nodes.
         pub fn getChildNodes(self: *const NodeType) NodeList {
-            return NodeList.init(c.ixmlNode_getChildNodes(@ptrCast(*c.IXML_Node, self.handle)));
+            return NodeList.init(c.ixmlNode_getChildNodes(handleToNode(self.handle)));
         }
 
         /// Get the first child of this node, if any. Useful if you expect this to be an element with a single text node.
         pub fn getFirstChild(self: *const NodeType) !?Node {
-            if (c.ixmlNode_getFirstChild(@ptrCast(*c.IXML_Node, self.handle))) |child_handle| {
+            if (c.ixmlNode_getFirstChild(handleToNode(self.handle))) |child_handle| {
                 return try Node.fromHandle(child_handle);
             }
             return null;
@@ -22,12 +22,21 @@ fn AbstractNode(comptime NodeType: type) type {
 
         /// Add a child to the end of this node.
         pub fn appendChild(self: *const NodeType, child: anytype) !void {
-            try check(c.ixmlNode_appendChild(@ptrCast(*c.IXML_Node, self.handle), @ptrCast(*c.IXML_Node, child.handle)), "Failed to append child", "err");
+            try check(c.ixmlNode_appendChild(handleToNode(self.handle), handleToNode(child.handle)), "Failed to append child", "err");
+        }
+
+        /// Convert the node into a string.
+        pub fn toString(self: *const NodeType) !DOMString {
+            if (c.ixmlNodetoString(handleToNode(self.handle))) |string| {
+                return DOMString.init(std.mem.sliceTo(string, 0));
+            }
+            logger.err("Failed to render node to string", .{});
+            return xml.Error;
         }
 
         /// Convert to generic node.
         pub fn toNode(self: *const NodeType) !Node {
-            return try Node.fromHandle(@ptrCast(*c.IXML_Node, self.handle));
+            return try Node.fromHandle(handleToNode(self.handle));
         }
     };
 }
@@ -99,8 +108,8 @@ pub const Document = struct {
         return NodeList.init(c.ixmlDocument_getElementsByTagName(self.handle, tag_name));
     }
 
-    /// Convert the document into a string.
-    pub fn toString(self: *const Document) !DOMString {
+    /// Convert the document into a string. Adds the XML prolog to the beginning.
+    pub fn toStringWithProlog(self: *const Document) !DOMString {
         if (c.ixmlDocumenttoString(self.handle)) |string| {
             return DOMString.init(std.mem.sliceTo(string, 0));
         }
@@ -144,7 +153,7 @@ pub const Element = struct {
 
     /// Get all attributes of this element.
     pub fn getAttributes(self: *const Element) AttributeMap {
-        return AttributeMap.init(c.ixmlNode_getAttributes(@ptrCast(*c.IXML_Node, self.handle)));
+        return AttributeMap.init(c.ixmlNode_getAttributes(handleToNode(self.handle)));
     }
 
     /// Get all child elements with the specified tag name.
@@ -275,10 +284,14 @@ pub const DOMString = struct {
     }
 };
 
-fn check(err: c_int, comptime message: []const u8, comptime severity: []const u8) !void {
+inline fn check(err: c_int, comptime message: []const u8, comptime severity: []const u8) !void {
     if (err != c.IXML_SUCCESS) {
         // TODO convert err to c.IXML_ERRORCODE to string
         @field(logger, severity)(message ++ ": {d}", .{err});
         return xml.Error;
     }
+}
+
+inline fn handleToNode(handle: anytype) *c.IXML_Node {
+    return @ptrCast(*c.IXML_Node, handle);
 }

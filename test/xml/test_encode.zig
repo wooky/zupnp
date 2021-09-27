@@ -36,7 +36,7 @@ test "full structure" {
     };
     var doc = try xml.encode(testing.allocator, input);
     defer doc.deinit();
-    var result = try doc.toString();
+    var result = try doc.toStringWithProlog();
     defer result.deinit();
 
     try testing.expectEqualStrings(full.file, result.string);
