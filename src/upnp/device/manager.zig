@@ -10,10 +10,12 @@ const logger = std.log.scoped(.@"zupnp.upnp.device.Manager");
 const RegisteredDevice = struct {
     const DeinitFn = fn(*c_void)void;
     const HandleActionFn = fn(*c_void, zupnp.upnp.device.ActionRequest) zupnp.upnp.device.ActionResult;
+    const HandleEventSubscriptionFn = fn(*c_void, zupnp.upnp.device.EventSubscriptionRequest) zupnp.upnp.device.EventSubscriptionResult;
 
     instance: *c_void,
     deinitFn: ?DeinitFn,
     handleActionFn: HandleActionFn,
+    handleEventSubscriptionFn: HandleEventSubscriptionFn,
     device_handle: c.UpnpDevice_Handle = undefined,
 
     fn deinit(self: *RegisteredDevice) void {
@@ -107,7 +109,7 @@ pub fn createDevice(
     var device_str = try device_document.toString();
     defer device_str.deinit();
 
-    // Put all of this much earlier than here
+    // TODO Put all of this much earlier than here
     if (self.devices.contains(udn)) {
         logger.err("Device {s} is already registered", .{udn});
         return zupnp.Error;
@@ -116,6 +118,7 @@ pub fn createDevice(
         .instance = @ptrCast(*c_void, instance),
         .deinitFn = c.mutateCallback(T, "deinit", RegisteredDevice.DeinitFn),
         .handleActionFn = c.mutateCallback(T, "handleAction", RegisteredDevice.HandleActionFn).?,
+        .handleEventSubscriptionFn = c.mutateCallback(T, "handleEventSubscription", RegisteredDevice.HandleEventSubscriptionFn).?,
     });
     errdefer {
         entry.value_ptr.deinit();
@@ -151,7 +154,6 @@ fn onEvent(event_type: c.Upnp_EventType, event: ?*const c_void, cookie: ?*c_void
 fn onAction(device: *RegisteredDevice, event: ?*const c_void) void {
     var action_request = c.mutate(*c.UpnpActionRequest, event);
     const action = zupnp.upnp.device.ActionRequest { .handle = action_request };
-    const udn = action.getDeviceUdn();
     var result: zupnp.upnp.device.ActionResult = device.handleActionFn(device.instance, action);
     
     if (result.action_result) |action_result| {
@@ -160,19 +162,21 @@ fn onAction(device: *RegisteredDevice, event: ?*const c_void) void {
     _ = c.UpnpActionRequest_set_ErrCode(action_request, result.err_code);
 }
 
-// TODO
 fn onEventSubscribe(device: *RegisteredDevice, event: ?*const c_void) void {
-    var event_subscribe_request = c.mutate(*c.UpnpSubscriptionRequest, event);
-    if (c.is_error(c.UpnpAcceptSubscription(
-        device.device_handle,
-        c.UpnpSubscriptionRequest_get_UDN_cstr(event_subscribe_request),
-        c.UpnpSubscriptionRequest_get_ServiceId_cstr(event_subscribe_request),
-        null,
-        null,
-        0,
-        "TODO"
-    ))) |err| {
-        logger.warn("Cannot accept subscription: {s}", .{err});
+    var event_subscription_request = c.mutate(*c.UpnpSubscriptionRequest, event);
+    var event_subscription = zupnp.upnp.device.EventSubscriptionRequest { .handle = event_subscription_request };
+    var result: zupnp.upnp.device.EventSubscriptionResult = device.handleEventSubscriptionFn(device.instance, event_subscription);
+    
+    if (result.property_set) |property_set| {
+        if (c.is_error(c.UpnpAcceptSubscriptionExt(
+            device.device_handle,
+            event_subscription.getDeviceUdn(),
+            event_subscription.getServiceId(),
+            property_set.handle,
+            event_subscription.getSid()
+        ))) |err| {
+            logger.warn("Failed to accept event subscription", .{});
+        }
     }
 }
 

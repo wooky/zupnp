@@ -4,10 +4,6 @@ const zupnp = @import("../../lib.zig");
 
 const logger = std.log.scoped(.@"zupnp.upnp.device.action");
 
-pub fn ActionFunction(comptime T: type) type {
-    return fn(*T, ActionRequest) anyerror!ActionResult;
-}
-
 pub const ActionRequest = struct {
     handle: *const c.UpnpActionRequest,
 

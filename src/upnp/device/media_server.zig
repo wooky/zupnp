@@ -45,12 +45,16 @@ const ContentDirectory = struct {
     // const ContainerList = std.ArrayList(Container);
     const ItemList = std.ArrayList(Item);
 
+    state: ContentDirectoryState,
     allocator: *Allocator,
     // containers: ContainerList,
     items: ItemList,
 
     pub fn init(allocator: *Allocator) ContentDirectory {
         return .{
+            .state = .{
+                .SystemUpdateID = "0",
+            },
             .allocator = allocator,
             .items = ItemList.init(allocator),
         };
@@ -70,7 +74,7 @@ const ContentDirectory = struct {
 
     fn getSystemUpdateID(self: *ContentDirectory, request: ActionRequest) !ActionResult {
         return ActionResult.createResult(service_definition.service_type, GetSystemUpdateIdOutput {
-            .Id = "0",
+            .Id = self.state.SystemUpdateID,
         });
     }
 
@@ -110,20 +114,28 @@ const ConnectionManager = struct {
     });
     usingnamespace zupnp.upnp.definition.connection_manager;
 
+    state: ConnectionManagerState,
+
     pub fn init() ConnectionManager {
-        return .{};
+        return .{
+            .state = .{
+                .SourceProtocolInfo = "",
+                .SinkProtocolInfo = "",
+                .CurrentConnectionIDs = "0",
+            },
+        };
     }
 
     fn getProtocolInfo(self: *ConnectionManager, request: ActionRequest) !ActionResult {
         return ActionResult.createResult(service_definition.service_type, GetProtocolInfoOutput {
-            .Source = "",
-            .Sink = "",
+            .Source = self.state.SourceProtocolInfo,
+            .Sink = self.state.SinkProtocolInfo,
         });
     }
 
     fn getCurrentConnectionIDs(self: *ConnectionManager, request: ActionRequest) !ActionResult {
         return ActionResult.createResult(service_definition.service_type, GetCurrentConnectionIdsOutput {
-            .ConnectionIDs = "0",
+            .ConnectionIDs = self.state.CurrentConnectionIDs,
         });
     }
 

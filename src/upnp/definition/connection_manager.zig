@@ -12,6 +12,12 @@ pub const Error = enum(c_int) {
     }
 };
 
+pub const ConnectionManagerState = struct {
+    SourceProtocolInfo: [:0]const u8,
+    SinkProtocolInfo: [:0]const u8,
+    CurrentConnectionIDs: [:0]const u8,
+};
+
 pub const GetProtocolInfoOutput = struct {
     pub const action_name = "GetProtocolInfo";
 

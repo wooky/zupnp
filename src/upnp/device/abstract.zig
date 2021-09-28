@@ -3,12 +3,14 @@ const zupnp = @import("../../lib.zig");
 
 const ActionRequest = zupnp.upnp.device.ActionRequest;
 const ActionResult = zupnp.upnp.device.ActionResult;
+const EventSubscriptionRequest = zupnp.upnp.device.EventSubscriptionRequest;
+const EventSubscriptionResult = zupnp.upnp.device.EventSubscriptionResult;
 
 pub fn AbstractDevice(comptime DeviceType: type, logger: anytype, services: anytype) type {
     return struct {
         pub fn handleAction(self: *DeviceType, request: ActionRequest) ActionResult {
             const service_id = request.getServiceId();
-            logger.debug("Received request for service ID {s} action {s}", .{service_id, request.getActionName()});
+            logger.debug("Received action request for service ID {s} action {s}", .{service_id, request.getActionName()});
             inline for (services) |service_str| {
                 comptime const ServiceClass = @TypeOf(@field(self, service_str));
                 if (std.mem.eql(u8, service_id, ServiceClass.service_definition.service_id)) {
@@ -16,8 +18,22 @@ pub fn AbstractDevice(comptime DeviceType: type, logger: anytype, services: anyt
                 }
             }
 
-            logger.debug("Unhandled service ID {s}", .{service_id});
+            logger.debug("Unhandled action service ID {s}", .{service_id});
             return ActionResult.createError(2);
+        }
+
+        pub fn handleEventSubscription(self: *DeviceType, request: EventSubscriptionRequest) EventSubscriptionResult {
+            const service_id = request.getServiceId();
+            logger.debug("Received event subscription request for service ID {s} SID {s}", .{service_id, request.getSid()});
+            inline for (services) |service_str| {
+                comptime const ServiceClass = @TypeOf(@field(self, service_str));
+                if (std.mem.eql(u8, service_id, ServiceClass.service_definition.service_id)) {
+                    return @field(self, service_str).handleEventSubscription(request);
+                }
+            }
+
+            logger.debug("Unhandled event subscription service ID {s}", .{service_id});
+            return EventSubscriptionResult.createError();
         }
     };
 }
@@ -30,13 +46,20 @@ pub fn AbstractService(comptime ServiceType: type, logger: anytype, actions_to_f
                 comptime const target_action_name = action_to_function.@"0".action_name;
                 if (std.mem.eql(u8, action_name, target_action_name)) {
                     return action_to_function.@"1"(self, request) catch |err| blk: {
-                        logger.err("Failed to create request: {s}", .{@errorName(err)});
+                        logger.err("Failed to create action request: {s}", .{@errorName(err)});
                         break :blk ActionResult.createError(501); // TODO place in some common error code struct - ActionFailed
                     };
                 }
             }
             logger.debug("Unhandled action {s}", .{action_name});
             return ActionResult.createError(401); // TODO place in some common error code struct - InvalidAction
+        }
+
+        pub fn handleEventSubscription(self: *ServiceType, request: EventSubscriptionRequest) EventSubscriptionResult {
+            return EventSubscriptionResult.createResult(self.state) catch |err| blk: {
+                logger.err("Failed to create event subscription request: {s}", .{@errorName(err)});
+                break :blk EventSubscriptionResult.createError();
+            };
         }
     };
 }

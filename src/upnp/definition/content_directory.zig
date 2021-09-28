@@ -30,6 +30,10 @@ pub const Error = enum(c_int) {
     }
 };
 
+pub const ContentDirectoryState = struct {
+    SystemUpdateID: [:0]const u8,
+};
+
 pub const GetSearchCapabilitiesOutput = struct {
     pub const action_name = "GetSearchCapabilities";
 
