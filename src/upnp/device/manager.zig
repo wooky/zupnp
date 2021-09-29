@@ -68,7 +68,7 @@ pub fn createDevice(
 
     var service_definitions = std.ArrayList(zupnp.upnp.definition.DeviceServiceDefinition).init(&arena.allocator);
     try instance.prepare(&self.arena.allocator, config, &service_definitions);
-    const udn = "uuid:TODO";
+    const udn = try std.fmt.allocPrint(&arena.allocator, "uuid:{s}", .{try zupnp.util.generateUuid()});
     const service_list = try arena.allocator.alloc(zupnp.upnp.definition.ServiceDefinition, service_definitions.items.len);
     for (service_definitions.items) |service_definition, i| {
         const scpd_url = try self.scpd_endpoint.?.addFile(udn, service_definition.service_id, service_definition.scpd_xml);
