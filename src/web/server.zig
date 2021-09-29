@@ -180,53 +180,34 @@ fn open(filename_c: [*c]const u8, mode: c.enum_UpnpOpenFileMode, cookie: ?*const
     return req.toFileHandle();
 }
 
-// TODO all of the following functions should have their switch statements replaced with some comptime magic
-
 fn read(file_handle: c.UpnpWebFileHandle, buf: [*c]u8, buflen: usize, cookie: ?*const c_void, request_cookie: ?*const c_void) callconv(.C) c_int {
-    const req = request.Request.fromFileHandle(file_handle);
-    return switch (req.*) {
-        .Get => |get| get.read(buf, buflen),
-        .Post => |*post| post.read(buf, buflen),
-        .Chunked => |chunked| chunked.read(buf, buflen),
-    };
+    return dispatch(c_int, file_handle, "read", .{buf, buflen});
 }
 
 fn seek(file_handle: c.UpnpWebFileHandle, offset: c.off_t, origin: c_int, cookie: ?*const c_void, request_cookie: ?*const c_void) callconv(.C) c_int {
-    const req = request.Request.fromFileHandle(file_handle);
-    return switch (req.*) {
-        .Get => |get| get.seek(offset, origin),
-        .Post => |*post| post.seek(offset, origin),
-        .Chunked => |chunked| chunked.seek(offset, origin),
-    };
+    return dispatch(c_int, file_handle, "seek", .{offset, origin});
 }
 
 fn write(file_handle: c.UpnpWebFileHandle, buf: [*c]u8, buflen: usize, cookie: ?*const c_void, request_cookie: ?*const c_void) callconv(.C) c_int {
-    const req = request.Request.fromFileHandle(file_handle);
-    return switch (req.*) {
-        .Get => |get| get.write(buf, buflen),
-        .Post => |*post| post.write(buf, buflen),
-        .Chunked => |chunked| chunked.write(buf, buflen),
-    };
+    return dispatch(c_int, file_handle, "write", .{buf, buflen});
 }
 
 fn close(file_handle: c.UpnpWebFileHandle, cookie: ?*const c_void, request_cookie: ?*const c_void) callconv(.C) c_int {
-    const req = request.Request.fromFileHandle(file_handle);
-    return switch (req.*) {
-        .Get => |get| {
-            defer get.deinit();
-            return get.close();
-        },
-        .Post => |*post| {
-            defer post.deinit();
-            return post.close();
-        },
-        .Chunked => |chunked| {
-            defer chunked.deinit();
-            return chunked.close();
-        }
-    };
+    const res = dispatch(c_int, file_handle, "close", .{});
+    dispatch(void, file_handle, "deinit", .{});
     if (request_cookie) |rc| {
         request.RequestCookie.fromVoidPointer(rc).deinit();
     }
     logger.debug("A connection has been closed", .{});
+    return res;
+}
+
+// TODO https://github.com/ziglang/zig/issues/7224
+fn dispatch(comptime T: type, file_handle: c.UpnpWebFileHandle, comptime fnName: [:0]const u8, params: anytype) T {
+    const req = request.Request.fromFileHandle(file_handle);
+    return switch (req.*) {
+        .Get => |get| @call(.{}, @field(get, fnName), params),
+        .Post => |*post| @call(.{}, @field(post, fnName), params),
+        .Chunked => |chunked| @call(.{}, @field(chunked, fnName), params),
+    };
 }

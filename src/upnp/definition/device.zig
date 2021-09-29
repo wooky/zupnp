@@ -1,4 +1,5 @@
 // http://www.upnp.org/schemas/device-1-0.xsd
+const zupnp = @import("../../lib.zig");
 
 pub const Device = struct {
     root: struct {
@@ -9,26 +10,16 @@ pub const Device = struct {
             major: u8 = 1,
             minor: u8 = 0,
         } = .{},
-        device: struct {
-            deviceType: []const u8,
-            UDN: []const u8,
-            serviceList: struct {
-                service: []const ServiceDefinition,
+        device: zupnp.util.structure.concatStructDeclarations(.{
+            struct {
+                deviceType: []const u8,
+                UDN: []const u8,
+                serviceList: struct {
+                    service: []const ServiceDefinition,
+                },
             },
-            // TODO reference the UserDefinedDeviceParameters struct directly rather than copy-pasting struct elements
-            friendlyName: []const u8,
-            manufacturer: []const u8,
-            manufacturerURL: ?[]const u8 = null,
-            modelDescription: ?[]const u8 = null,
-            modelName: []const u8,
-            modelNumber: ?[]const u8 = null,
-            modelURL: ?[]const u8 = null,
-            serialNumber: ?[]const u8 = null,
-            UPC: ?[]const u8 = null,
-            iconList: ?struct{
-                icon: []const Icon,
-            } = null,
-        },
+            UserDefinedDeviceParameters
+        })
     }
 };
 
@@ -42,7 +33,9 @@ pub const UserDefinedDeviceParameters = struct {
     modelURL: ?[]const u8 = null,
     serialNumber: ?[]const u8 = null,
     UPC: ?[]const u8 = null,
-    iconList: ?[]const Icon = null,
+    iconList: ?struct {
+        icon: []const Icon,
+    } = null,
 };
 
 pub const Icon = struct {

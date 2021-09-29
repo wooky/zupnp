@@ -33,7 +33,8 @@ pub const ZUPnP = struct {
             logger.err("Failed to initialize library: {s}", .{err});
             return error.UPnPError;
         }
-        // TODO in future releases of pupnp, call UpnpSetLogCallback to redirect logger calls to Zig's logger
+        // This is the part where pupnp's logger gets initialized, however that only gets used in debug builds,
+        // which the user is 99% unlikely to run, so sucks to suck.
         return ZUPnP {
             .allocator = allocator,
             .device_manager = upnp.device.Manager.init(allocator),
