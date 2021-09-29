@@ -22,6 +22,10 @@ pub const ActionRequest = struct {
     pub fn getActionRequest(self: *const ActionRequest) zupnp.xml.Document {
         return zupnp.xml.Document.init(c.UpnpActionRequest_get_ActionRequest(self.handle));
     }
+
+    pub fn getClientAddress(self: *const ActionRequest) zupnp.util.ClientAddress {
+        return zupnp.util.ClientAddress.fromSockaddStorage(c.UpnpActionRequest_get_CtrlPtIPAddr(self.handle));
+    }
 };
 
 pub const ActionResult = struct {

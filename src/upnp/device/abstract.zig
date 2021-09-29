@@ -10,7 +10,10 @@ pub fn AbstractDevice(comptime DeviceType: type, logger: anytype, services: anyt
     return struct {
         pub fn handleAction(self: *DeviceType, request: ActionRequest) ActionResult {
             const service_id = request.getServiceId();
-            logger.debug("Received action request for service ID {s} action {s}", .{service_id, request.getActionName()});
+            logger.debug(
+                "Received action request for service ID {s} action {s} from {s}",
+                .{service_id, request.getActionName(), request.getClientAddress().toString()}
+            );
             inline for (services) |service_str| {
                 comptime const ServiceClass = @TypeOf(@field(self, service_str));
                 if (std.mem.eql(u8, service_id, ServiceClass.service_definition.service_id)) {

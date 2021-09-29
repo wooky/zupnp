@@ -1,5 +1,6 @@
 const std = @import("std");
 const c = @import("../c.zig");
+const zupnp = @import("../lib.zig");
 
 pub usingnamespace @import("client.zig");
 pub const Server = @import("server.zig");
@@ -29,6 +30,9 @@ pub const ServerGetRequest = struct {
 
     /// Full path being requested.
     filename: [:0]const u8,
+
+    /// IP address of the client.
+    client_address: *const zupnp.util.ClientAddress,
 };
 
 /// HTTP request sent by a client to a POST endpoint.
@@ -41,6 +45,8 @@ pub const ServerPostRequest = struct {
 
     /// Contents sent by the client.
     contents: []const u8,
+
+    // TODO IP address of the client.
 };
 
 /// HTTP method to make a request.

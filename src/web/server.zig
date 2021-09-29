@@ -101,7 +101,8 @@ pub fn stop(self: *Server) void {
 /// TODO optimize for HEAD requests.
 fn getInfo(filename_c: [*c]const u8, info: ?*c.UpnpFileInfo, cookie: ?*const c_void, request_cookie: [*c]?*const c_void) callconv(.C) c_int {
     const filename = std.mem.sliceTo(filename_c, 0);
-    logger.debug("GET {s}", .{filename});
+    const client_address = zupnp.util.ClientAddress.fromSockaddStorage(c.UpnpFileInfo_get_CtrlPtIPAddr(info));
+    logger.debug("GET {s} from {s}", .{filename, client_address.toString()});
 
     const endpoint = request.Endpoint.fromCookie(cookie);
     if (endpoint.getFn == null) {
@@ -117,6 +118,7 @@ fn getInfo(filename_c: [*c]const u8, info: ?*c.UpnpFileInfo, cookie: ?*const c_v
     const req = zupnp.web.ServerGetRequest {
         .allocator = &req_cookie.arena.allocator,
         .filename = filename,
+        .client_address = &client_address,
     };
 
     const response = (endpoint.getFn.?)(endpoint.instance, &req);

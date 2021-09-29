@@ -3,8 +3,6 @@ const zupnp = @import("../lib.zig");
 const c = @import("../c.zig");
 
 const logger = std.log.scoped(.@"zupnp.util.uuid");
-const RTLD_LAZY = 1;
-const RTLD_NOLOAD = 4;
 
 const UuidUpnp = packed struct {
     time_low: u32,
@@ -23,7 +21,7 @@ const Lib = struct {
     upnp_uuid_unpack: UpnpUuidUnpackFn,
 
     fn init() !Lib {
-        var libupnp = std.c.dlopen("libupnp.so", RTLD_LAZY | RTLD_NOLOAD) orelse {
+        var libupnp = std.c.dlopen("libupnp.so", std.c.RTLD_LAZY | std.c.RTLD_NOLOAD) orelse {
             logger.alert("Failed to load libupnp, even though it's already loaded?!", .{});
             return zupnp.Error;
         };
