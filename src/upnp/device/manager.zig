@@ -68,7 +68,7 @@ pub fn createDevice(
 
     var service_definitions = std.ArrayList(zupnp.upnp.definition.DeviceServiceDefinition).init(&arena.allocator);
     try instance.prepare(&self.arena.allocator, config, &service_definitions);
-    const udn = try std.fmt.allocPrint(&arena.allocator, "uuid:{s}", .{try zupnp.util.uuid.generateUuid()});
+    const udn = try std.fmt.allocPrint(&arena.allocator, "uuid:{s}", .{zupnp.util.uuid.generateUuid()});
     const service_list = try arena.allocator.alloc(zupnp.upnp.definition.ServiceDefinition, service_definitions.items.len);
     for (service_definitions.items) |service_definition, i| {
         const scpd_url = try self.scpd_endpoint.?.addFile(udn, service_definition.service_id, service_definition.scpd_xml);
@@ -136,6 +136,7 @@ pub fn createDevice(
         return zupnp.Error;
     }
 
+    logger.info("Registered device {s} with UDN {s}", .{T, udn});
     return instance;
 }
 
