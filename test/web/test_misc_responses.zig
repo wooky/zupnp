@@ -19,7 +19,7 @@ const SUT = struct {
                 return zupnp.web.ServerResponse.forbidden();
             }
             const contents = std.fmt.allocPrint(request.allocator, "Hello {s}", .{action}) catch |e| @panic(@errorName(e));
-            return zupnp.web.ServerResponse.contents(.{ .contents = contents, .content_type = "text/plain" }); // TODO remove content type once the client stops crashing
+            return zupnp.web.ServerResponse.contents(.{ .contents = contents });
         }
     };
 

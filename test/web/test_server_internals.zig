@@ -10,7 +10,7 @@ const SUT = struct {
 
         pub fn get(self: *Endpoint, request: *const zupnp.web.ServerGetRequest) zupnp.web.ServerResponse {
             _ = request.allocator.alloc(u8, 1024) catch |e| @panic(@errorName(e));
-            return zupnp.web.ServerResponse.contents(.{ .content_type = "text/plain" }); // TODO remove content type once the client stops crashing
+            return zupnp.web.ServerResponse.contents(.{});
         }
 
         pub fn post(self: *Endpoint, request: *const zupnp.web.ServerPostRequest) bool {

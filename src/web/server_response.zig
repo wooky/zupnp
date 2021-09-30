@@ -9,7 +9,7 @@ pub const ServerResponse = union(enum) {
         headers: [][]const u8 = &[_][]const u8{},
 
         /// Content type.
-        content_type: ?[:0]const u8 = null,
+        content_type: [:0]const u8 = "",
 
         /// Contents
         contents: []const u8 = "",
@@ -20,12 +20,12 @@ pub const ServerResponse = union(enum) {
         headers: [][]const u8 = &[_][]const u8{},
 
         /// Content type.
-        content_type: ?[:0]const u8 = null,
+        content_type: [:0]const u8 = "",
     };
 
     pub const ContentsInternal = struct {
         headers: [][]const u8,
-        content_type: ?[:0]const u8,
+        content_type: [:0]const u8,
         contents: []const u8,
     };
 
@@ -37,7 +37,7 @@ pub const ServerResponse = union(enum) {
         };
 
         headers: [][]const u8,
-        content_type: ?[:0]const u8,
+        content_type: [:0]const u8,
         handler: Handler,
     };
 

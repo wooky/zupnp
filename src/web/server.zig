@@ -129,17 +129,17 @@ fn getInfo(filename_c: [*c]const u8, info: ?*c.UpnpFileInfo, cookie: ?*const c_v
         .Forbidden => is_readable = false,
         .Contents => |cnt| {
             req_cookie.request = .{ .Get = request.GetRequest.init(cnt.contents) };
-            if (cnt.content_type) |content_type| {
-                logger.debug("ContentType err {d}", .{c.UpnpFileInfo_set_ContentType(info, content_type)});
-            }
-            logger.debug("FileLength err {d}", .{c.UpnpFileInfo_set_FileLength(info, @intCast(c_long, cnt.contents.len))});
+            logger.debug("ContentType err {d} FileLength err {d}", .{
+                c.UpnpFileInfo_set_ContentType(info, cnt.content_type),
+                c.UpnpFileInfo_set_FileLength(info, @intCast(c_long, cnt.contents.len))
+            });
         },
         .Chunked => |chk| {
             req_cookie.request = .{ .Chunked = request.ChunkedRequest.init(chk.handler) };
-            if (chk.content_type) |content_type| {
-                logger.debug("ContentType err {d}", .{c.UpnpFileInfo_set_ContentType(info, content_type)});
-            }
-            logger.debug("FileLength err {d}", .{c.UpnpFileInfo_set_FileLength(info, c.UPNP_USING_CHUNKED)});
+            logger.debug("ContentType err {d} FileLength err {d}", .{
+                c.UpnpFileInfo_set_ContentType(info, chk.content_type),
+                c.UpnpFileInfo_set_FileLength(info, c.UPNP_USING_CHUNKED)
+            });
         },
     }
 

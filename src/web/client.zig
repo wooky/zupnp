@@ -42,7 +42,6 @@ pub fn request(method: zupnp.web.Method, url: [:0]const u8, client_request: zupn
     var http_status: c_int = undefined;
     var content_type: [*c]u8 = undefined;
     var content_length: c_int = undefined;
-    // TODO crash occurs here if no content type is set
     // TODO be aware that content type is only valid for the duration of the connection
     if (c.is_error(c.UpnpGetHttpResponse(handle, null, &content_type, &content_length, &http_status, timeout))) |err| {
         logger.err("Failed getting HTTP response: {s}", .{err});
