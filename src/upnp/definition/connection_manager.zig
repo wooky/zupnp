@@ -1,10 +1,6 @@
 // http://upnp.org/specs/av/UPnP-av-ConnectionManager-v1-Service.pdf
 
 pub const Error = enum(c_int) {
-    InvalidAction = 401,
-    InvalidArgs = 402,
-    InvalidVar = 404,
-    ActionFailed = 501,
     InvalidConnectionReference = 706,
 
     pub fn toErrorCode(self: Error) c_int {

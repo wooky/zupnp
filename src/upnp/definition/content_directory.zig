@@ -1,10 +1,6 @@
 // http://upnp.org/specs/av/UPnP-av-ContentDirectory-v1-Service.pdf
 
 pub const Error = enum(c_int) {
-    InvalidAction = 401,
-    InvalidArgs = 402,
-    InvalidVar = 404,
-    ActionFailed = 501,
     NoSuchObject = 701,
     InvalidCurrentTagValue = 702,
     InvalidNewTagValue = 703,

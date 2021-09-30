@@ -29,7 +29,7 @@ pub const ActionRequest = struct {
 };
 
 pub const ActionResult = struct {
-    action_result: ?zupnp.xml.Document, // DO NOT DEINIT! Used by ActionRequest when returning to client.
+    action_result: ?zupnp.xml.Document, // DO NOT DEINIT! Once passed to UpnpActionRequest_set_ActionResult, it'll get automatically free'd.
     err_code: c_int,
 
     pub fn createResult(service_type: [:0]const u8, arguments: anytype) !ActionResult {

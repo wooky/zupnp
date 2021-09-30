@@ -165,6 +165,7 @@ fn onEventSubscribe(device: *RegisteredDevice, event: ?*const c_void) void {
     var event_subscription_request = c.mutate(*c.UpnpSubscriptionRequest, event);
     var event_subscription = zupnp.upnp.device.EventSubscriptionRequest { .handle = event_subscription_request };
     var result: zupnp.upnp.device.EventSubscriptionResult = device.handleEventSubscriptionFn(device.instance, event_subscription);
+    defer result.deinit();
     
     if (result.property_set) |property_set| {
         if (c.is_error(c.UpnpAcceptSubscriptionExt(

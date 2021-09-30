@@ -50,7 +50,7 @@ pub fn createEndpoint(self: *Server, comptime T: type, config: anytype, destinat
 
     try self.endpoints.append(.{
         // TODO allow passing in struct with no in-memory representation
-        // Easiest would be to turn `instance` to ?*c_void
+        // This won't be easy, as calling a function with an instance with zero bits will completely discard that variable, causing massive havoc
         .instance = @ptrCast(*c_void, instance),
         .allocator = &self.arena.allocator,
         .deinitFn = c.mutateCallback(T, "deinit", request.Endpoint.DeinitFn),
@@ -60,7 +60,11 @@ pub fn createEndpoint(self: *Server, comptime T: type, config: anytype, destinat
     errdefer { _ = self.endpoints.pop(); }
 
     var old_cookie: ?*c_void = undefined;
-    if (c.is_error(c.UpnpAddVirtualDir(destination, @ptrCast(*const c_void, &self.endpoints.items[self.endpoints.items.len - 1]), &old_cookie))) |err| {
+    if (c.is_error(c.UpnpAddVirtualDir(
+        destination,
+        @ptrCast(*const c_void, &self.endpoints.items[self.endpoints.items.len - 1]),
+        &old_cookie
+    ))) |err| {
         logger.err("Failed to add endpoint: {s}", .{err});
         return zupnp.Error;
     }

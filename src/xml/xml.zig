@@ -53,8 +53,7 @@ pub const Node = union(enum) {
             c.eELEMENT_NODE => Node { .Element = Element.init(@ptrCast(*c.IXML_Element, handle)) },
             c.eTEXT_NODE => Node { .TextNode = TextNode.init(handle) },
             else => |node_type| {
-                // TODO convert node_type to c.IXML_NODE_TYPE to string
-                logger.err("Unhandled XML node type {d}", .{node_type});
+                logger.err("Unhandled XML node type {s}", .{@tagName(@intToEnum(c.IXML_NODE_TYPE, node_type))});
                 return xml.Error;
             }
         };
@@ -286,8 +285,7 @@ pub const DOMString = struct {
 
 inline fn check(err: c_int, comptime message: []const u8, comptime severity: []const u8) !void {
     if (err != c.IXML_SUCCESS) {
-        // TODO convert err to c.IXML_ERRORCODE to string
-        @field(logger, severity)(message ++ ": {d}", .{err});
+        @field(logger, severity)(message ++ ": {s}", .{@tagName(@intToEnum(c.IXML_ERRORCODE, err))});
         return xml.Error;
     }
 }

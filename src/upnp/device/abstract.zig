@@ -1,6 +1,7 @@
 const std = @import("std");
 const zupnp = @import("../../lib.zig");
 
+const ActionError = zupnp.upnp.definition.ActionError;
 const ActionRequest = zupnp.upnp.device.ActionRequest;
 const ActionResult = zupnp.upnp.device.ActionResult;
 const EventSubscriptionRequest = zupnp.upnp.device.EventSubscriptionRequest;
@@ -22,7 +23,7 @@ pub fn AbstractDevice(comptime DeviceType: type, logger: anytype, services: anyt
             }
 
             logger.debug("Unhandled action service ID {s}", .{service_id});
-            return ActionResult.createError(2);
+            return ActionResult.createError(ActionError.UnhandledActionServiceId.toErrorCode());
         }
 
         pub fn handleEventSubscription(self: *DeviceType, request: EventSubscriptionRequest) EventSubscriptionResult {
@@ -50,12 +51,12 @@ pub fn AbstractService(comptime ServiceType: type, logger: anytype, actions_to_f
                 if (std.mem.eql(u8, action_name, target_action_name)) {
                     return action_to_function.@"1"(self, request) catch |err| blk: {
                         logger.err("Failed to create action request: {s}", .{@errorName(err)});
-                        break :blk ActionResult.createError(501); // TODO place in some common error code struct - ActionFailed
+                        break :blk ActionResult.createError(ActionError.ActionFailed.toErrorCode());
                     };
                 }
             }
             logger.debug("Unhandled action {s}", .{action_name});
-            return ActionResult.createError(401); // TODO place in some common error code struct - InvalidAction
+            return ActionResult.createError(ActionError.InvalidAction.toErrorCode());
         }
 
         pub fn handleEventSubscription(self: *ServiceType, request: EventSubscriptionRequest) EventSubscriptionResult {

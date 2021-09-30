@@ -21,7 +21,7 @@ pub const EventSubscriptionRequest = struct {
 };
 
 pub const EventSubscriptionResult = struct {
-    property_set: ?zupnp.xml.Document, // TODO should we defer deinit() this?
+    property_set: ?zupnp.xml.Document,
 
     pub fn createResult(arguments: anytype) !EventSubscriptionResult {
         var doc: ?*c.IXML_Document = null;
@@ -42,5 +42,11 @@ pub const EventSubscriptionResult = struct {
         return .{
             .property_set = null,
         };
+    }
+
+    pub fn deinit(self: *EventSubscriptionResult) void {
+        if (self.property_set) |*property_set| {
+            property_set.deinit();
+        }
     }
 };
