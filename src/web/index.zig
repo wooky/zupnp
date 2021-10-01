@@ -8,6 +8,8 @@ pub const Server = @import("server.zig");
 pub const ClientResponse = @import("client_response.zig");
 pub const ServerResponse = @import("server_response.zig").ServerResponse;
 
+pub const Headers = @import("headers.zig");
+
 /// Additional parameters to send to the server when making an HTTP request.
 pub const ClientRequest = struct {
     /// TODO unused

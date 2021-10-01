@@ -137,6 +137,12 @@ fn getInfo(filename_c: [*c]const u8, info: ?*c.UpnpFileInfo, cookie: ?*const c_v
                 c.UpnpFileInfo_set_ContentType(info, cnt.content_type),
                 c.UpnpFileInfo_set_FileLength(info, @intCast(c_long, cnt.contents.len))
             });
+            if (cnt.headers) |*headers| {
+                headers.addHeadersToList(c.UpnpFileInfo_get_ExtraHeadersList(info)) catch |err| {
+                    logger.err("Failed to add headers: {s}", .{err});
+                    return -1;
+                };
+            }
         },
         .Chunked => |chk| {
             req_cookie.request = .{ .Chunked = request.ChunkedRequest.init(chk.handler) };
@@ -144,6 +150,12 @@ fn getInfo(filename_c: [*c]const u8, info: ?*c.UpnpFileInfo, cookie: ?*const c_v
                 c.UpnpFileInfo_set_ContentType(info, chk.content_type),
                 c.UpnpFileInfo_set_FileLength(info, c.UPNP_USING_CHUNKED)
             });
+            if (chk.headers) |*headers| {
+                headers.addHeadersToList(c.UpnpFileInfo_get_ExtraHeadersList(info)) catch |err| {
+                    logger.err("Failed to add headers: {s}", .{err});
+                    return -1;
+                };
+            }
         },
     }
 

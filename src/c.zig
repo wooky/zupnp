@@ -1,6 +1,7 @@
 pub usingnamespace @cImport({
     @cInclude("upnp.h");
     @cInclude("upnptools.h");
+    @cInclude("UpnpExtraHeaders.h");
 });
 
 pub fn is_error(err: c_int) ?[:0]const u8 {

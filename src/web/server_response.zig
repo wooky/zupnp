@@ -1,3 +1,4 @@
+const zupnp = @import("../lib.zig");
 const c = @import("../c.zig");
 const ChunkedDeinitFn = fn(*c_void)void;
 const ChunkedGetChunkFn = fn(*c_void, []u8, usize)usize;
@@ -5,8 +6,8 @@ const ChunkedGetChunkFn = fn(*c_void, []u8, usize)usize;
 /// HTTP response to send back to the client.
 pub const ServerResponse = union(enum) {
     pub const ContentsParameters = struct {
-        /// TODO unused
-        headers: [][]const u8 = &[_][]const u8{},
+        /// Extra headers to send to the client.
+        headers: ?zupnp.web.Headers = null,
 
         /// Content type.
         content_type: [:0]const u8 = "",
@@ -16,15 +17,15 @@ pub const ServerResponse = union(enum) {
     };
 
     pub const ChunkedParameters = struct {
-        /// TODO unused
-        headers: [][]const u8 = &[_][]const u8{},
+        /// Extra headers to send to the client.
+        headers: ?zupnp.web.Headers = null,
 
         /// Content type.
         content_type: [:0]const u8 = "",
     };
 
     pub const ContentsInternal = struct {
-        headers: [][]const u8,
+        headers: ?zupnp.web.Headers,
         content_type: [:0]const u8,
         contents: []const u8,
     };
@@ -36,7 +37,7 @@ pub const ServerResponse = union(enum) {
             getChunkFn: ChunkedGetChunkFn,
         };
 
-        headers: [][]const u8,
+        headers: ?zupnp.web.Headers,
         content_type: [:0]const u8,
         handler: Handler,
     };
