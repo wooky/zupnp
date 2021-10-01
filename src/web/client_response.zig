@@ -20,6 +20,7 @@ content_length: ?u32,
 timeout: c_int,
 // keepalive: bool,
 handle: ?*c_void,
+connection_closed: bool = false,
 
 /// Read full contents of HTTP request into a memory allocated string.
 /// Caller owns the returned string.
@@ -36,6 +37,10 @@ pub fn readAll(self: *ClientResponse, allocator: *std.mem.Allocator) ![:0]u8 {
 /// Read contents of HTTP request into buffer and returns a slice if anything was read.
 /// If there's nothing to read, the request is cancelled and null is returned.
 pub fn readChunk(self: *ClientResponse, buf: []u8) !?[]const u8 {
+    if (self.connection_closed) {
+        logger.err("Connection closed", .{});
+        return zupnp.Error;
+    }
     errdefer self.cancel();
     var size = buf.len;
     if (c.is_error(c.UpnpReadHttpResponse(self.handle, buf.ptr, &size, self.timeout))) |err| {
@@ -51,10 +56,13 @@ pub fn readChunk(self: *ClientResponse, buf: []u8) !?[]const u8 {
 
 /// Cancel the current request and, if keepalive was unset, also closes the connection to the server.
 pub fn cancel(self: *ClientResponse) void {
-    logger.debug("Cancel err {d}", .{c.UpnpCancelHttpGet(self.handle)});
-    // if (!self.keepalive) {
-        logger.debug("Close err {d}", .{c.UpnpCloseHttpConnection(self.handle)});
-        // Due to the nature of pupnp, once the handle is closed, content type get clobbered
-        self.content_type = null;
-    // }
+    if (!self.connection_closed) {
+        logger.debug("Cancel err {d}", .{c.UpnpCancelHttpGet(self.handle)});
+        // if (!self.keepalive) {
+            logger.debug("Close err {d}", .{c.UpnpCloseHttpConnection(self.handle)});
+            self.connection_closed = true;
+            // Due to the nature of pupnp, once the handle is closed, content type get clobbered
+            self.content_type = null;
+        // }
+    }
 }
