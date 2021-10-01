@@ -1,5 +1,6 @@
 const std = @import("std");
 const c = @import("../c.zig");
+const zupnp = @import("../lib.zig");
 const Allocator = std.mem.Allocator;
 
 const Headers = @This();
@@ -78,17 +79,32 @@ pub fn addHeadersToList(self: *const Headers, list: *const c.UpnpListHead) !void
     }
 }
 
-pub fn toString(self: *const Headers) !std.ArrayList(u8) {
-    const CRLF = "\r\n";
+pub fn toString(self: *const Headers, url: []const u8) !std.ArrayList(u8) {
     var buf = std.ArrayList(u8).init(self.allocator);
     errdefer buf.deinit();
+    try appendHeader(&buf, "HOST", try getHostFromUrl(url));
+
     var iter = self.items.iterator();
     while (iter.next()) |kv| {
-        try buf.appendSlice(kv.key_ptr.*);
-        try buf.appendSlice(": ");
-        try buf.appendSlice(kv.value_ptr.*);
-        try buf.appendSlice(CRLF);
+        try appendHeader(&buf, kv.key_ptr.*, kv.value_ptr.*);
     }
-    buf.shrinkRetainingCapacity(buf.items.len - CRLF.len); // trim excess CRLF
     return buf;
+}
+
+fn appendHeader(buf: *std.ArrayList(u8), name: []const u8, value: []const u8) !void {
+    const CRLF = "\r\n";
+    try buf.appendSlice(name);
+    try buf.appendSlice(": ");
+    try buf.appendSlice(value);
+    try buf.appendSlice(CRLF);
+}
+
+// Port of httpreadwrite.c :: get_hoststr()
+fn getHostFromUrl(url: []const u8) ![]const u8 {
+    const double_slash = (std.mem.indexOf(u8, url, "//") orelse {
+        logger.warn("Invalid URL {s}", .{url});
+        return zupnp.Error;
+    }) + 2;
+    const next_slash = std.mem.indexOfScalarPos(u8, url, double_slash, '/') orelse url.len;
+    return url[double_slash..next_slash];
 }

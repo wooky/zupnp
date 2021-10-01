@@ -20,7 +20,7 @@ pub fn request(method: zupnp.web.Method, url: [:0]const u8, client_request: zupn
     }
     errdefer logger.debug("Close err {d}", .{c.UpnpCloseHttpConnection(handle)});
 
-    var headers_buf = if (client_request.headers) |*headers| try headers.toString() else null;
+    var headers_buf = if (client_request.headers) |*headers| try headers.toString(url) else null;
     defer { if (headers_buf) |*hb| hb.deinit(); }
     const headers = if (headers_buf) |*hb| blk: {
         var headers = c.UpnpString_new();
