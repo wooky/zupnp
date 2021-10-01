@@ -77,3 +77,18 @@ pub fn addHeadersToList(self: *const Headers, list: *const c.UpnpListHead) !void
         c.UpnpExtraHeaders_add_to_list_node(l, mut_list);
     }
 }
+
+pub fn toString(self: *const Headers) !std.ArrayList(u8) {
+    const CRLF = "\r\n";
+    var buf = std.ArrayList(u8).init(self.allocator);
+    errdefer buf.deinit();
+    var iter = self.items.iterator();
+    while (iter.next()) |kv| {
+        try buf.appendSlice(kv.key_ptr.*);
+        try buf.appendSlice(": ");
+        try buf.appendSlice(kv.value_ptr.*);
+        try buf.appendSlice(CRLF);
+    }
+    buf.shrinkRetainingCapacity(buf.items.len - CRLF.len); // trim excess CRLF
+    return buf;
+}

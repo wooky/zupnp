@@ -20,7 +20,23 @@ pub fn request(method: zupnp.web.Method, url: [:0]const u8, client_request: zupn
     }
     errdefer logger.debug("Close err {d}", .{c.UpnpCloseHttpConnection(handle)});
 
-    if (c.is_error(c.UpnpMakeHttpRequest(method.toUpnpMethod(), url, handle, null, client_request.content_type orelse null, @intCast(c_int, client_request.contents.len), timeout))) |err| {
+    var headers_buf = if (client_request.headers) |*headers| try headers.toString() else null;
+    defer { if (headers_buf) |*hb| hb.deinit(); }
+    const headers = if (headers_buf) |*hb| blk: {
+        var headers = c.UpnpString_new();
+        _ = c.UpnpString_set_StringN(headers, hb.items.ptr, hb.items.len);
+        break :blk headers;
+    }
+    else null;
+
+    if (c.is_error(c.UpnpMakeHttpRequest(
+        method.toUpnpMethod(),
+        url,
+        handle,
+        headers,
+        client_request.content_type orelse null,
+        @intCast(c_int, client_request.contents.len), timeout)
+    )) |err| {
         logger.err("Failed making request to HTTP endpoint: {s}", .{err});
         return zupnp.Error;
     }

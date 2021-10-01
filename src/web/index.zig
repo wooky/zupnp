@@ -12,8 +12,9 @@ pub const Headers = @import("headers.zig");
 
 /// Additional parameters to send to the server when making an HTTP request.
 pub const ClientRequest = struct {
-    /// TODO unused
-    headers: [][]const u8 = &[_][]const u8{},
+    /// Headers to send to the server.
+    /// TODO this clobbers the "Host" header, so unless you manually add that in, your requests will most likely fail :^)
+    headers: ?zupnp.web.Headers = null,
 
     /// Content type of the contents being sent.
     content_type: ?[:0]const u8 = null,
