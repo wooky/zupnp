@@ -1,0 +1,66 @@
+<html>
+    <head>
+        <title>My Cool Site :)</title>
+    </head>
+    <body style="background-color: black; color: white; align-items: center; font-family: 'Comic Sans MS'; font-size: 20pt; text-align: center;">
+        <div style="width: 600px; margin: 0 auto;">
+            <h1>
+                <img src="hot.gif">
+                ZUPnP
+                <img src="hot.gif">
+            </h1>
+            <marquee>Welcome to my cool new website! It's served just for you, by ZUPnP! Isn't it amazing?</marquee>
+            <p>
+                <img src="under-construction.gif" style="width: 48px;">
+                This page is under construction!
+                <img src="under-construction.gif" style="width: 48px;">
+            </p>
+            <p>
+                <img src="https://bestanimations.com/media/guestbooks/1870977891quill-sign-guestbook-animation.gif" style="width: 48px">
+                Please sign my guestbook! :-)
+                <img src="https://bestanimations.com/media/guestbooks/1870977891quill-sign-guestbook-animation.gif" style="width: 48px">
+            </p>
+            <form onsubmit="return addSubmission()">
+                Name: <input type="text" id="name" required><br>
+                Message: <textarea id="message" rows="5" required></textarea><br>
+                <input type="submit">
+            </form>
+            <p>Latest guestbook entries:</p>
+            <div id="submissions">
+                <noscript>Please allow JavaScript to see entries :-(</noscript>
+            </div>
+        </div>
+        <script>
+            const submissions = document.getElementById("submissions");
+            function loadEntries() {
+                submissions.innerText = "Loading...";
+                fetch("/guestbook")
+                    .then(r => r.json())
+                    .then(entries => {
+                        submissions.innerText = "";
+                        entries.forEach(entry => {
+                            const date = new Date(entry.timestamp);
+                            const message = document.createElement("blockquote");
+                            message.innerText = entry.message;
+                            const outer = document.createElement("blockquote");
+                            outer.innerText = `On ${date.toLocaleString()}, ${entry.name} wrote:`;
+                            outer.appendChild(message);
+                            submissions.appendChild(outer);
+                        });
+                    })
+                    .catch(err => submissions.innerText = `Oh no! ${err}`);
+            }
+            loadEntries();
+
+            function addSubmission() {
+                fetch("/guestbook", {method: "POST", body: JSON.stringify({
+                    "name": document.getElementById("name").value,
+                    "message": document.getElementById("message").value
+                })})
+                    .then(() => loadEntries())
+                    .catch(err => alert(err));
+                return false;
+            }
+        </script>
+    </body>
+</html>

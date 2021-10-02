@@ -25,7 +25,11 @@ exe.addPackagePath("zupnp", "zupnp/src/lib.zig");
 ```
 
 ## Documentation
-Detailed documentation is in progress. For now, check the test directory to see how some features work.
+Detailed documentation is in progress. For now, check the [test](test) directory to see how some features work.
+
+## Examples
+Some examples are included in the [samples](samples) directory. Those include:
+* [website](samples/website) - basic demonstration of static content, GET, and POST requests
 
 ## License
 Licensed under the MIT license.
