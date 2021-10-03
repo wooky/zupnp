@@ -13,6 +13,7 @@ const RegisteredDevice = struct {
     const HandleEventSubscriptionFn = fn(*c_void, zupnp.upnp.device.EventSubscriptionRequest) zupnp.upnp.device.EventSubscriptionResult;
 
     instance: *c_void,
+    allocator: *Allocator,
     deinitFn: ?DeinitFn,
     handleActionFn: HandleActionFn,
     handleEventSubscriptionFn: HandleEventSubscriptionFn,
@@ -68,6 +69,7 @@ pub fn createDevice(
 
     var service_definitions = std.ArrayList(zupnp.upnp.definition.DeviceServiceDefinition).init(&arena.allocator);
     try instance.prepare(&self.arena.allocator, config, &service_definitions);
+    // TODO derive UDN in some deterministic way so that reconnecting to the device after program restart still works.
     const udn = try std.fmt.allocPrint(&arena.allocator, "uuid:{s}", .{zupnp.util.uuid.generateUuid()});
     const service_list = try arena.allocator.alloc(zupnp.upnp.definition.ServiceDefinition, service_definitions.items.len);
     for (service_definitions.items) |service_definition, i| {
@@ -114,6 +116,7 @@ pub fn createDevice(
     }
     const entry = try self.devices.getOrPutValue(udn, .{
         .instance = @ptrCast(*c_void, instance),
+        .allocator = &self.arena.allocator,
         .deinitFn = c.mutateCallback(T, "deinit", RegisteredDevice.DeinitFn),
         .handleActionFn = c.mutateCallback(T, "handleAction", RegisteredDevice.HandleActionFn).?,
         .handleEventSubscriptionFn = c.mutateCallback(T, "handleEventSubscription", RegisteredDevice.HandleEventSubscriptionFn).?,
@@ -151,8 +154,13 @@ fn onEvent(event_type: c.Upnp_EventType, event: ?*const c_void, cookie: ?*c_void
 }
 
 fn onAction(device: *RegisteredDevice, event: ?*const c_void) void {
+    var arena = ArenaAllocator.init(device.allocator);
+    defer arena.deinit();
     var action_request = c.mutate(*c.UpnpActionRequest, event);
-    const action = zupnp.upnp.device.ActionRequest { .handle = action_request };
+    const action = zupnp.upnp.device.ActionRequest {
+        .allocator = &arena.allocator,
+        .handle = action_request,
+    };
     var result: zupnp.upnp.device.ActionResult = device.handleActionFn(device.instance, action);
     
     if (result.action_result) |action_result| {
@@ -162,8 +170,13 @@ fn onAction(device: *RegisteredDevice, event: ?*const c_void) void {
 }
 
 fn onEventSubscribe(device: *RegisteredDevice, event: ?*const c_void) void {
+    var arena = ArenaAllocator.init(device.allocator);
+    defer arena.deinit();
     var event_subscription_request = c.mutate(*c.UpnpSubscriptionRequest, event);
-    var event_subscription = zupnp.upnp.device.EventSubscriptionRequest { .handle = event_subscription_request };
+    var event_subscription = zupnp.upnp.device.EventSubscriptionRequest {
+        .allocator = &arena.allocator,
+        .handle = event_subscription_request,
+    };
     var result: zupnp.upnp.device.EventSubscriptionResult = device.handleEventSubscriptionFn(device.instance, event_subscription);
     defer result.deinit();
     

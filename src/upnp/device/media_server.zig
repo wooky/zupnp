@@ -21,12 +21,16 @@ pub fn prepare(self: *MediaServer, allocator: *std.mem.Allocator, config: void, 
     try service_list.append(ConnectionManager.service_definition);
 }
 
+pub fn deinit(self: *MediaServer) void {
+    self.content_directory.deinit();
+}
+
 pub usingnamespace zupnp.upnp.device.AbstractDevice(MediaServer, logger, .{
     "content_directory",
     "connection_manager",
 });
 
-const ContentDirectory = struct {
+pub const ContentDirectory = struct {
     pub const service_definition = DeviceServiceDefinition {
         .service_type = "urn:schemas-upnp-org:service:ContentDirectory:1",
         .service_id = "urn:upnp-org:serviceId:ContentDirectory",
@@ -42,22 +46,29 @@ const ContentDirectory = struct {
         .{ BrowseOutput, browse },
     });
     usingnamespace zupnp.upnp.definition.content_directory;
-    // const ContainerList = std.ArrayList(Container);
-    const ItemList = std.ArrayList(Item);
+
+    pub const Contents = struct {
+        containers: std.ArrayList(Container),
+        items: std.ArrayList(Item),
+    };
 
     state: ContentDirectoryState,
-    allocator: *Allocator,
-    // containers: ContainerList,
-    items: ItemList,
+    containers: std.ArrayList(Container),
+    items: std.ArrayList(Item),
 
     pub fn init(allocator: *Allocator) ContentDirectory {
         return .{
             .state = .{
                 .SystemUpdateID = "0",
             },
-            .allocator = allocator,
-            .items = ItemList.init(allocator),
+            .containers = std.ArrayList(Container).init(allocator),
+            .items = std.ArrayList(Item).init(allocator),
         };
+    }
+
+    pub fn deinit(self: *ContentDirectory) void {
+        self.containers.deinit();
+        self.items.deinit();
     }
 
     fn getSearchCapabilities(self: *ContentDirectory, request: ActionRequest) !ActionResult {
@@ -79,11 +90,42 @@ const ContentDirectory = struct {
     }
 
     fn browse(self: *ContentDirectory, request: ActionRequest) !ActionResult {
+        var str = try request.getActionRequest().toString();
+        defer str.deinit();
+        var browse_input = zupnp.xml.decode(
+            request.allocator,
+            zupnp.upnp.definition.content_directory.BrowseInput,
+            request.getActionRequest()
+        ) catch |err| {
+            logger.warn("Failed to parse browse request: {s}", .{err});
+            return ActionResult.createError(zupnp.upnp.definition.ActionError.InvalidArgs.toErrorCode());
+        };
+        defer browse_input.deinit();
+        const objectId = browse_input.result.@"u:Browse".ObjectID;
+
+        var containers = std.ArrayList(Container).init(request.allocator);
+        defer containers.deinit();
+        for (self.containers.items) |c| {
+            if (std.mem.eql(u8, objectId, c.__attributes__.parentID)) {
+                try containers.append(c);
+            }
+        }
+
+        var items = std.ArrayList(Item).init(request.allocator);
+        defer items.deinit();
+        for (self.items.items) |i| {
+            if (std.mem.eql(u8, objectId, i.__attributes__.parentID)) {
+                try items.append(i);
+            }
+        }
+
+        const count = containers.items.len + items.items.len;
         var count_buf: [8]u8 = undefined;
-        var count = try std.fmt.bufPrintZ(&count_buf, "{d}", .{self.items.items.len});
-        var didl = try zupnp.xml.encode(self.allocator, DIDLLite {
+        var count_str = try std.fmt.bufPrintZ(&count_buf, "{d}", .{count});
+        var didl = try zupnp.xml.encode(request.allocator, DIDLLite {
             .@"DIDL-Lite" = .{
-                .item = self.items.items,
+                .container = containers.items,
+                .item = items.items,
             }
         });
         defer didl.deinit();
@@ -91,14 +133,14 @@ const ContentDirectory = struct {
         defer didl_str.deinit();
         return ActionResult.createResult(service_definition.service_type, BrowseOutput {
             .Result = didl_str.string,
-            .NumberReturned = count,
-            .TotalMatches = count,
+            .NumberReturned = count_str,
+            .TotalMatches = count_str,
             .UpdateID = "0",
         });
     }
 };
 
-const ConnectionManager = struct {
+pub const ConnectionManager = struct {
     pub const service_definition = DeviceServiceDefinition {
         .service_type = "urn:schemas-upnp-org:service:ConnectionManager:1",
         .service_id = "urn:upnp-org:serviceId:ConnectionManager",

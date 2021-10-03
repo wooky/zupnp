@@ -48,13 +48,16 @@ pub const GetSystemUpdateIdOutput = struct {
     Id: [:0]const u8,
 };
 
+// TODO ideally all of []const u8 should be [:0]const u8
 pub const BrowseInput = struct {
-    ObjectID: [:0]const u8,
-    BrowseFlag: [:0]const u8,
-    Filter: [:0]const u8,
-    StartingIndex: u32,
-    RequestedCount: u32,
-    SortCriteria: [:0]const u8,
+    @"u:Browse": struct {
+        ObjectID: []const u8,
+        BrowseFlag: []const u8,
+        Filter: []const u8,
+        StartingIndex: u32,
+        RequestedCount: u32,
+        SortCriteria: []const u8,
+    }
 };
 
 // TODO some of the fields are not stringy, however the ActionResult function does not accept non-string fields.
@@ -77,37 +80,55 @@ pub const DIDLLite = struct {
             @"xmlns:upnp": []const u8 = "urn:schemas-upnp-org:metadata-1-0/upnp/",
             xmlns: []const u8 = "urn:schemas-upnp-org:metadata-1-0/DIDL-Lite/",
         } = .{},
-        // container: ?[]Container = null,
-        item: ?[]Item = null,
+        container: ?[]const Container = null,
+        item: ?[]const Item = null,
     }
 };
 
 // TODO some of these attributes are []const u8, even though they should be numeric.
 // Currently our XML implementation doesn't support numeric attributes.
 // Change back to numeric when implementation is made.
-pub const Item = struct {
+
+pub const Container = struct {
     __attributes__: struct {
-        id: []const u8, // usize
-        parentID: []const u8 = "0", // usize
+        id: []const u8,
+        parentID: []const u8 = "0",
         restricted: []const u8 = "0", // bool TODO bool needs to be converted to 0 or 1
-        refID: ?[]const u8 = null, // ?usize
+        searchable: ?[]const u8 = null, // bool TODO bool needs to be converted to 0 or 1
+        childCount: ?[]const u8 = null, // usize
     },
     @"dc:title": []const u8,
     @"upnp:class": []const u8,
-    res: struct {
-        __attributes__: struct {
-            protocolInfo: []const u8,
-            importUri: ?[]const u8 = null,
-            size: ?[]const u8 = null, // ?usize
-            duration: ?[]const u8 = null,
-            bitrate: ?[]const u8 = null, // ?usize
-            sampleFrequency: ?[]const u8 = null, // ?usize
-            bitsPerSample: ?[]const u8 = null, // ?u8
-            nrAudioChannels: ?[]const u8 = null, // ?u8
-            resolution: ?[]const u8 = null,
-            colorDepth: ?[]const u8 = null, // ?u8
-            protection: ?[]const u8 = null,
-        },
-        __item__: []const u8,
-    }
+    res: ?[]const Res = null,
+    item: ?[]const Item = null,
+    // container: []Container, // TODO XML parser doesn't support cyclic fields
+};
+
+pub const Item = struct {
+    __attributes__: struct {
+        id: []const u8,
+        parentID: []const u8 = "0",
+        restricted: []const u8 = "0", // bool TODO bool needs to be converted to 0 or 1
+        refID: ?[]const u8 = null,
+    },
+    @"dc:title": []const u8,
+    @"upnp:class": []const u8,
+    res: ?[]const Res = null,
+};
+
+pub const Res = struct {
+    __attributes__: struct {
+        protocolInfo: []const u8,
+        importUri: ?[]const u8 = null,
+        size: ?[]const u8 = null, // ?usize
+        duration: ?[]const u8 = null,
+        bitrate: ?[]const u8 = null, // ?usize
+        sampleFrequency: ?[]const u8 = null, // ?usize
+        bitsPerSample: ?[]const u8 = null, // ?u8
+        nrAudioChannels: ?[]const u8 = null, // ?u8
+        resolution: ?[]const u8 = null,
+        colorDepth: ?[]const u8 = null, // ?u8
+        protection: ?[]const u8 = null,
+    },
+    __item__: []const u8,
 };

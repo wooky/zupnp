@@ -5,6 +5,7 @@ const zupnp = @import("../../lib.zig");
 const logger = std.log.scoped(.@"zupnp.upnp.device.action");
 
 pub const ActionRequest = struct {
+    allocator: *std.mem.Allocator,
     handle: *const c.UpnpActionRequest,
 
     pub fn getDeviceUdn(self: *const ActionRequest) [:0]const u8 {
