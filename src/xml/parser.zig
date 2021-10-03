@@ -84,8 +84,11 @@ pub fn handleOptional(self: *Parser, comptime name: []const u8, input: anytype, 
 
 pub fn handleString(self: *Parser, comptime name: []const u8, input: anytype, parent: xml.Element) !void {
     var text_node = (try parent.getFirstChild()) orelse {
-        logger.warn("Text element {s} has no text", .{name});
-        return xml.Error;
+        // TODO text element might be present, but empty
+        // logger.warn("Text element {s} has no text", .{name});
+        // return xml.Error;
+        input.* = "";
+        return;
     };
     switch (text_node) {
         .TextNode => |tn| input.* = try self.arena.allocator.dupe(u8, tn.getValue()),
