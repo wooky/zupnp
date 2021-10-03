@@ -29,6 +29,7 @@ Detailed documentation is in progress. For now, check the [test](test) directory
 
 ## Examples
 Some examples are included in the [samples](samples) directory. Those include:
+* [mediaserver](samples/mediaserver) - serve contents to DLNA receivers
 * [website](samples/website) - basic demonstration of static content, GET, and POST requests
 
 ## License
