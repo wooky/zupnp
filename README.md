@@ -5,6 +5,7 @@ ZUPnP is a [Zig](https://ziglang.org/) library which features:
 * Web client
 * XML parser
 * Misc. utilities, such as UUID generator
+
 This library is a high-level wrapper around the ubiquitous [pupnp](https://pupnp.sourceforge.io/) (Portable SDK for UPnP Devices, AKA libupnp) library, featuring a convenient API with some Zig-specific specialties thrown in.
 
 ## Prerequisites
