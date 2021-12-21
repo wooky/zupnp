@@ -8,12 +8,12 @@ const Manager = @This();
 const logger = std.log.scoped(.@"zupnp.upnp.device.Manager");
 
 const RegisteredDevice = struct {
-    const DeinitFn = fn(*c_void)void;
-    const HandleActionFn = fn(*c_void, zupnp.upnp.device.ActionRequest) zupnp.upnp.device.ActionResult;
-    const HandleEventSubscriptionFn = fn(*c_void, zupnp.upnp.device.EventSubscriptionRequest) zupnp.upnp.device.EventSubscriptionResult;
+    const DeinitFn = fn(*anyopaque)void;
+    const HandleActionFn = fn(*anyopaque, zupnp.upnp.device.ActionRequest) zupnp.upnp.device.ActionResult;
+    const HandleEventSubscriptionFn = fn(*anyopaque, zupnp.upnp.device.EventSubscriptionRequest) zupnp.upnp.device.EventSubscriptionResult;
 
-    instance: *c_void,
-    allocator: *Allocator,
+    instance: *anyopaque,
+    allocator: Allocator,
     deinitFn: ?DeinitFn,
     handleActionFn: HandleActionFn,
     handleEventSubscriptionFn: HandleEventSubscriptionFn,
@@ -31,7 +31,7 @@ arena: ArenaAllocator,
 devices: DeviceMap,
 scpd_endpoint: ?*ScpdEndpoint = null,
 
-pub fn init(allocator: *Allocator) Manager {
+pub fn init(allocator: Allocator) Manager {
     return .{
         .arena = ArenaAllocator.init(allocator),
         .devices = DeviceMap.init(allocator),
@@ -58,28 +58,28 @@ pub fn createDevice(
         // TODO this is stupidly hacky
         // and yeah it has to be a pointer, otherwise it'll copy the server object
         var server = &@fieldParentPtr(zupnp.ZUPnP, "device_manager", self).server;
-        self.scpd_endpoint = try server.createEndpoint(ScpdEndpoint, .{ .allocator = &self.arena.allocator }, ScpdEndpoint.base_url);
+        self.scpd_endpoint = try server.createEndpoint(ScpdEndpoint, .{ .allocator = self.arena.allocator() }, ScpdEndpoint.base_url);
     }
 
-    var instance = try self.arena.allocator.create(T);
-    errdefer self.arena.allocator.destroy(instance);
+    var instance = try self.arena.allocator().create(T);
+    errdefer self.arena.allocator().destroy(instance);
 
-    var arena = ArenaAllocator.init(&self.arena.allocator);
+    var arena = ArenaAllocator.init(self.arena.allocator());
     defer arena.deinit();
 
-    var service_definitions = std.ArrayList(zupnp.upnp.definition.DeviceServiceDefinition).init(&arena.allocator);
-    try instance.prepare(&self.arena.allocator, config, &service_definitions);
+    var service_definitions = std.ArrayList(zupnp.upnp.definition.DeviceServiceDefinition).init(arena.allocator());
+    try instance.prepare(self.arena.allocator(), config, &service_definitions);
     // TODO derive UDN in some deterministic way so that reconnecting to the device after program restart still works.
-    const udn = try std.fmt.allocPrint(&arena.allocator, "uuid:{s}", .{zupnp.util.uuid.generateUuid()});
-    const service_list = try arena.allocator.alloc(zupnp.upnp.definition.ServiceDefinition, service_definitions.items.len);
+    const udn = try std.fmt.allocPrint(arena.allocator(), "uuid:{s}", .{zupnp.util.uuid.generateUuid()});
+    const service_list = try arena.allocator().alloc(zupnp.upnp.definition.ServiceDefinition, service_definitions.items.len);
     for (service_definitions.items) |service_definition, i| {
         const scpd_url = try self.scpd_endpoint.?.addFile(udn, service_definition.service_id, service_definition.scpd_xml);
         service_list[i] = .{
             .serviceType = service_definition.service_type,
             .serviceId = service_definition.service_id,
             .SCPDURL = scpd_url,
-            .controlURL = try std.fmt.allocPrint(&arena.allocator, "/control/{s}/{s}", .{udn, service_definition.service_id}),
-            .eventSubURL = try std.fmt.allocPrint(&arena.allocator, "/event/{s}/{s}", .{udn, service_definition.service_id}),
+            .controlURL = try std.fmt.allocPrint(arena.allocator(), "/control/{s}/{s}", .{udn, service_definition.service_id}),
+            .eventSubURL = try std.fmt.allocPrint(arena.allocator(), "/event/{s}/{s}", .{udn, service_definition.service_id}),
         };
     }
 
@@ -104,7 +104,7 @@ pub fn createDevice(
             }
         }
     };
-    const device_document = try zupnp.xml.encode(&arena.allocator, device);
+    const device_document = try zupnp.xml.encode(arena.allocator(), device);
     defer device_document.deinit();
     var device_str = try device_document.toString();
     defer device_str.deinit();
@@ -115,8 +115,8 @@ pub fn createDevice(
         return zupnp.Error;
     }
     const entry = try self.devices.getOrPutValue(udn, .{
-        .instance = @ptrCast(*c_void, instance),
-        .allocator = &self.arena.allocator,
+        .instance = @ptrCast(*anyopaque, instance),
+        .allocator = self.arena.allocator(),
         .deinitFn = c.mutateCallback(T, "deinit", RegisteredDevice.DeinitFn),
         .handleActionFn = c.mutateCallback(T, "handleAction", RegisteredDevice.HandleActionFn).?,
         .handleEventSubscriptionFn = c.mutateCallback(T, "handleEventSubscription", RegisteredDevice.HandleEventSubscriptionFn).?,
@@ -127,12 +127,12 @@ pub fn createDevice(
     }
 
     if (c.is_error(c.UpnpRegisterRootDevice2(
-        .UPNPREG_BUF_DESC,
+        c.UPNPREG_BUF_DESC,
         device_str.string.ptr,
         device_str.string.len,
         1, // TODO wtf does this do?
         onEvent,
-        @ptrCast(*const c_void, entry.value_ptr),
+        @ptrCast(*const anyopaque, entry.value_ptr),
         &entry.value_ptr.device_handle
     ))) |err| {
         logger.err("Failed to register device: {s}", .{err});
@@ -143,22 +143,22 @@ pub fn createDevice(
     return instance;
 }
 
-fn onEvent(event_type: c.Upnp_EventType, event: ?*const c_void, cookie: ?*c_void) callconv(.C) c_int {
+fn onEvent(event_type: c.Upnp_EventType, event: ?*const anyopaque, cookie: ?*anyopaque) callconv(.C) c_int {
     var device = c.mutate(*RegisteredDevice, cookie);
     switch (event_type) {
-        .UPNP_CONTROL_ACTION_REQUEST => onAction(device, event),
-        .UPNP_EVENT_SUBSCRIPTION_REQUEST => onEventSubscribe(device, event),
-        else => logger.info("Unhandled event type {s}", .{@tagName(event_type)})
+        c.UPNP_CONTROL_ACTION_REQUEST => onAction(device, event),
+        c.UPNP_EVENT_SUBSCRIPTION_REQUEST => onEventSubscribe(device, event),
+        else => logger.info("Unhandled event type {}", .{event_type})
     }
     return 0;
 }
 
-fn onAction(device: *RegisteredDevice, event: ?*const c_void) void {
+fn onAction(device: *RegisteredDevice, event: ?*const anyopaque) void {
     var arena = ArenaAllocator.init(device.allocator);
     defer arena.deinit();
     var action_request = c.mutate(*c.UpnpActionRequest, event);
     const action = zupnp.upnp.device.ActionRequest {
-        .allocator = &arena.allocator,
+        .allocator = arena.allocator(),
         .handle = action_request,
     };
     var result: zupnp.upnp.device.ActionResult = device.handleActionFn(device.instance, action);
@@ -169,12 +169,9 @@ fn onAction(device: *RegisteredDevice, event: ?*const c_void) void {
     _ = c.UpnpActionRequest_set_ErrCode(action_request, result.err_code);
 }
 
-fn onEventSubscribe(device: *RegisteredDevice, event: ?*const c_void) void {
-    var arena = ArenaAllocator.init(device.allocator);
-    defer arena.deinit();
+fn onEventSubscribe(device: *RegisteredDevice, event: ?*const anyopaque) void {
     var event_subscription_request = c.mutate(*c.UpnpSubscriptionRequest, event);
     var event_subscription = zupnp.upnp.device.EventSubscriptionRequest {
-        .allocator = &arena.allocator,
         .handle = event_subscription_request,
     };
     var result: zupnp.upnp.device.EventSubscriptionResult = device.handleEventSubscriptionFn(device.instance, event_subscription);
@@ -188,7 +185,7 @@ fn onEventSubscribe(device: *RegisteredDevice, event: ?*const c_void) void {
             property_set.handle,
             event_subscription.getSid()
         ))) |err| {
-            logger.warn("Failed to accept event subscription", .{});
+            logger.warn("Failed to accept event subscription: {s}", .{err});
         }
     }
 }
@@ -196,10 +193,10 @@ fn onEventSubscribe(device: *RegisteredDevice, event: ?*const c_void) void {
 const ScpdEndpoint = struct {
     const base_url = "/scpd";
 
-    allocator: *Allocator,
+    allocator: Allocator,
     xml_files: std.StringHashMap([]const u8),
 
-    pub fn prepare(self: *ScpdEndpoint, config: struct { allocator: *Allocator }) !void {
+    pub fn prepare(self: *ScpdEndpoint, config: struct { allocator: Allocator }) !void {
         self.allocator = config.allocator;
         self.xml_files = std.StringHashMap([]const u8).init(config.allocator);
     }

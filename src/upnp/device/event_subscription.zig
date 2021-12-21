@@ -5,7 +5,6 @@ const zupnp = @import("../../lib.zig");
 const logger = std.log.scoped(.@"zupnp.upnp.device.event_subscription");
 
 pub const EventSubscriptionRequest = struct {
-    allocator: *std.mem.Allocator,
     handle: *const c.UpnpSubscriptionRequest,
 
     pub fn getDeviceUdn(self: *const EventSubscriptionRequest) [:0]const u8 {
@@ -27,7 +26,7 @@ pub const EventSubscriptionResult = struct {
     pub fn createResult(arguments: anytype) !EventSubscriptionResult {
         var doc: ?*c.IXML_Document = null;
         inline for (@typeInfo(@TypeOf(arguments)).Struct.fields) |field| {
-            comptime const key = field.name ++ "\x00";
+            const key = field.name ++ "\x00";
             const value: [:0]const u8 = @field(arguments, field.name);
             if (c.is_error(c.UpnpAddToPropertySet(&doc, key, value))) |err| {
                 logger.err("Cannot create response: {s}", .{err});

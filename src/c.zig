@@ -1,14 +1,15 @@
-pub usingnamespace @cImport({
+const c = @cImport({
     @cInclude("upnp.h");
     @cInclude("upnptools.h");
     @cInclude("UpnpExtraHeaders.h");
 });
+pub usingnamespace c;
 
 pub fn is_error(err: c_int) ?[:0]const u8 {
-    if (err == UPNP_E_SUCCESS) {
+    if (err == c.UPNP_E_SUCCESS) {
         return null;
     }
-    return @import("std").mem.sliceTo(UpnpGetErrorMessage(err), 0);
+    return @import("std").mem.sliceTo(c.UpnpGetErrorMessage(err), 0);
 }
 
 pub fn mutate(comptime To: type, from: anytype) To {

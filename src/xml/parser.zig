@@ -4,7 +4,7 @@ const xml = @import("../lib.zig").xml;
 
 const Parser = @This();
 const logger = std.log.scoped(.@"zupnp.xml.Parser");
-usingnamespace @import("traverser.zig").StructTraverser(Parser, logger);
+usingnamespace @import("traverser.zig").StructTraverser(Parser);
 
 pub fn DecodeResult(comptime T: type) type {
     return struct {
@@ -19,7 +19,7 @@ pub fn DecodeResult(comptime T: type) type {
 
 arena: ArenaAllocator,
 
-pub fn init(allocator: *std.mem.Allocator) Parser {
+pub fn init(allocator: std.mem.Allocator) Parser {
     return .{ .arena = ArenaAllocator.init(allocator) };
 }
 
@@ -28,7 +28,7 @@ pub fn cleanup(self: *Parser) void {
 }
 
 pub fn parseDocument(self: *Parser, comptime T: type, doc: xml.Document) !DecodeResult(T) {
-    var result = try self.arena.allocator.create(T);
+    var result = try self.arena.allocator().create(T);
     try self.traverseStruct(result, try doc.toNode());
     return DecodeResult(T) {
         .result = result,
@@ -55,8 +55,8 @@ pub fn handlePointer(self: *Parser, comptime name: []const u8, input: anytype, p
     const PointerChild = @typeInfo(@TypeOf(input.*)).Pointer.child;
     var iterator = parent.getElementsByTagName(name ++ "\x00").iterator();
     if (iterator.length > 0) {
-        var resultants = try self.arena.allocator.alloc(PointerChild, iterator.length);
-        for (resultants) |*res, idx| {
+        var resultants = try self.arena.allocator().alloc(PointerChild, iterator.length);
+        for (resultants) |*res| {
             try self.traverseField(res, name, (try iterator.next()).?);
         }
         input.* = resultants;
@@ -91,7 +91,7 @@ pub fn handleString(self: *Parser, comptime name: []const u8, input: anytype, pa
         return;
     };
     switch (text_node) {
-        .TextNode => |tn| input.* = try self.arena.allocator.dupe(u8, tn.getValue()),
+        .TextNode => |tn| input.* = try self.arena.allocator().dupe(u8, tn.getValue()),
         else => {
             logger.warn("Element {s} is not a text element", .{name});
             return xml.Error;
@@ -99,12 +99,12 @@ pub fn handleString(self: *Parser, comptime name: []const u8, input: anytype, pa
     }
 }
 
-pub fn handleInt(self: *Parser, comptime name: []const u8, input: anytype, parent: xml.Element) !void {
-    input.* = try std.fmt.parseInt(@TypeOf(input.*), try getTextNode(name, input, parent), 0);
+pub fn handleInt(_: *Parser, comptime name: []const u8, input: anytype, parent: xml.Element) !void {
+    input.* = try std.fmt.parseInt(@TypeOf(input.*), try getTextNode(name, parent), 0);
 }
 
-pub fn handleBool(self: *Parser, comptime name: []const u8, input: anytype, parent: xml.Element) !void {
-    const maybe_bool = try getTextNode(name, input, parent);
+pub fn handleBool(_: *Parser, comptime name: []const u8, input: anytype, parent: xml.Element) !void {
+    const maybe_bool = try getTextNode(name, parent);
     var actual_bool: bool = undefined;
     if (std.ascii.eqlIgnoreCase(maybe_bool, "true") or std.mem.eql(u8, maybe_bool, "1")) {
         actual_bool = true;
@@ -124,7 +124,7 @@ pub fn handleAttributes(self: *Parser, input: anytype, parent: xml.Element) !voi
     inline for (@typeInfo(@TypeOf(input.*)).Struct.fields) |field| {
         const value = blk: {
             var node = attributes.getNamedItem(field.name ++ "\x00") orelse break :blk null;
-            break :blk try self.arena.allocator.dupe(u8, node.getValue());
+            break :blk try self.arena.allocator().dupe(u8, node.getValue());
         };
         @field(input, field.name) = switch (field.field_type) {
             ?[]const u8, ?[]u8 => value,
@@ -142,7 +142,7 @@ pub fn handleSingleItem(self: *Parser, comptime name: []const u8, input: anytype
     try self.traverseField(input, "__item__", element);
 }
 
-fn getTextNode(comptime name: []const u8, input: anytype, parent: xml.Element) ![:0]const u8 {
+fn getTextNode(comptime name: []const u8, parent: xml.Element) ![:0]const u8 {
     var text_node = (try parent.getFirstChild()) orelse {
         logger.warn("Text element {s} has no text", .{name});
         return xml.Error;

@@ -5,7 +5,7 @@ const zupnp = @import("../../lib.zig");
 const logger = std.log.scoped(.@"zupnp.upnp.device.action");
 
 pub const ActionRequest = struct {
-    allocator: *std.mem.Allocator,
+    allocator: std.mem.Allocator,
     handle: *const c.UpnpActionRequest,
 
     pub fn getDeviceUdn(self: *const ActionRequest) [:0]const u8 {
@@ -34,10 +34,10 @@ pub const ActionResult = struct {
     err_code: c_int,
 
     pub fn createResult(service_type: [:0]const u8, arguments: anytype) !ActionResult {
-        comptime const action_name = @TypeOf(arguments).action_name;
+        const action_name = @TypeOf(arguments).action_name;
         var doc: ?*c.IXML_Document = null;
         inline for (@typeInfo(@TypeOf(arguments)).Struct.fields) |field| {
-            comptime const key = field.name ++ "\x00";
+            const key = field.name ++ "\x00";
             const value: [:0]const u8 = @field(arguments, field.name);
             if (c.is_error(c.UpnpAddToActionResponse(&doc, action_name, service_type, key, value))) |err| {
                 logger.err("Cannot create response: {s}", .{err});

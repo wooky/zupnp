@@ -4,7 +4,7 @@ const xml = @import("../lib.zig").xml;
 const attributes_field_name = "__attributes__";
 const item_field_name = "__item__";
 
-pub fn StructTraverser(comptime Self: type, comptime logger: type) type {
+pub fn StructTraverser(comptime Self: type) type {
     return struct {
         pub fn traverseStruct(self: *Self, input: anytype, parent: xml.Node) !void {
             inline for (@typeInfo(@TypeOf(input.*)).Struct.fields) |field| {
@@ -14,7 +14,7 @@ pub fn StructTraverser(comptime Self: type, comptime logger: type) type {
 
         pub fn traverseField(self: *Self, input: anytype, comptime name: []const u8, parent: xml.Node) !void {
             switch (@typeInfo(@TypeOf(input.*))) {
-                .Struct => |s|
+                .Struct =>
                     if (comptime std.mem.eql(u8, name, attributes_field_name)) {
                         try self.handleAttributes(input, parent.Element);
                     }
@@ -31,7 +31,7 @@ pub fn StructTraverser(comptime Self: type, comptime logger: type) type {
                     }
                     @compileError("Field " ++ name ++ " has unsupported pointer type " ++ @typeName(p.child));
                 },
-                .Optional => |o| try self.handleOptional(name, input, parent.Element),
+                .Optional => try self.handleOptional(name, input, parent.Element),
                 .Int => try self.handleLeafNode(input, name, parent.Element, Self.handleInt),
                 .Bool => try self.handleLeafNode(input, name, parent.Element, Self.handleBool),
                 else => @compileError("Unsupported field " ++ name ++ " inside struct")

@@ -53,7 +53,7 @@ pub const Node = union(enum) {
             c.eELEMENT_NODE => Node { .Element = Element.init(@ptrCast(*c.IXML_Element, handle)) },
             c.eTEXT_NODE => Node { .TextNode = TextNode.init(handle) },
             else => |node_type| {
-                logger.err("Unhandled XML node type {s}", .{@tagName(@intToEnum(c.IXML_NODE_TYPE, node_type))});
+                logger.err("Unhandled XML node type {}", .{node_type});
                 return xml.Error;
             }
         };
@@ -129,7 +129,7 @@ pub const Element = struct {
 
     /// Get the tag name of this element.
     pub fn getTagName(self: *const Element) [:0]const u8 {
-        return std.mem.sliceTo(c.ixmlElement_getTagName(), 0);
+        return std.mem.sliceTo(c.ixmlElement_getTagName(self.handle), 0);
     }
 
     /// Get single attribute of this element, if it exists.
@@ -201,7 +201,7 @@ pub const NodeList = struct {
     /// Get a node by index. Returns an error if the item doesn't exist.
     pub fn getItem(self: *const NodeList, index: usize) !Node {
         if (self.handle) |h| {
-            if (c.ixmlNodeList_item(self.handle, index)) |item_handle| {
+            if (c.ixmlNodeList_item(h, index)) |item_handle| {
                 return try Node.fromHandle(item_handle);
             }
             logger.err("Cannot query node list item", .{});
@@ -285,7 +285,7 @@ pub const DOMString = struct {
 
 inline fn check(err: c_int, comptime message: []const u8, comptime severity: []const u8) !void {
     if (err != c.IXML_SUCCESS) {
-        @field(logger, severity)(message ++ ": {s}", .{@tagName(@intToEnum(c.IXML_ERRORCODE, err))});
+        @field(logger, severity)(message ++ ": {d}", .{err}); // TODO convert err to a more useful string
         return xml.Error;
     }
 }

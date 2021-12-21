@@ -7,17 +7,17 @@ const zupnp = @import("../lib.zig");
 const logger = std.log.scoped(.@"zupnp.web.request");
 
 pub const Endpoint = struct {
-    pub const DeinitFn = fn(*c_void) void;
-    pub const GetFn = fn(*c_void, *const zupnp.web.ServerGetRequest) zupnp.web.ServerResponse;
-    pub const PostFn = fn(*c_void, *const zupnp.web.ServerPostRequest) bool;
+    pub const DeinitFn = fn(*anyopaque) void;
+    pub const GetFn = fn(*anyopaque, *const zupnp.web.ServerGetRequest) zupnp.web.ServerResponse;
+    pub const PostFn = fn(*anyopaque, *const zupnp.web.ServerPostRequest) bool;
 
-    instance: *c_void,
-    allocator: *std.mem.Allocator,
+    instance: *anyopaque,
+    allocator: std.mem.Allocator,
     deinitFn: ?DeinitFn,
     getFn: ?GetFn,
     postFn: ?PostFn,
 
-    pub fn fromCookie(cookie: ?*const c_void) *Endpoint {
+    pub fn fromCookie(cookie: ?*const anyopaque) *Endpoint {
         return c.mutate(*Endpoint, cookie);
     }
 };
@@ -29,7 +29,7 @@ pub const RequestCookie = struct {
         Chunked: ChunkedRequest,
     },
 
-    pub fn create(allocator: *std.mem.Allocator) !*RequestCookie {
+    pub fn create(allocator: std.mem.Allocator) !*RequestCookie {
         var req = try allocator.create(RequestCookie);
         req.* = .{
             .arena = ArenaAllocator.init(allocator),
@@ -38,7 +38,7 @@ pub const RequestCookie = struct {
         return req;
     }
 
-    pub fn fromVoidPointer(ptr: ?*const c_void) *RequestCookie {
+    pub fn fromVoidPointer(ptr: ?*const anyopaque) *RequestCookie {
         return c.mutate(*RequestCookie, ptr);
     }
 
@@ -48,7 +48,7 @@ pub const RequestCookie = struct {
     }
 
     pub fn toRequest(self: *RequestCookie) !*Request {
-        var req = try self.arena.allocator.create(Request);
+        var req = try self.arena.allocator().create(Request);
         req.* = switch (self.request) {
             .Get => |*get| .{ .Get = get },
             .Chunked => |*chunked| .{ .Chunked = chunked },
@@ -82,7 +82,7 @@ pub const GetRequest = struct {
         };
     }
 
-    pub fn deinit(self: *GetRequest) void {
+    pub fn deinit(_: *GetRequest) void {
         // Do nothing.
     }
 
@@ -105,12 +105,12 @@ pub const GetRequest = struct {
         return 0;
     }
 
-    pub fn write(self: *GetRequest, buf: [*c]u8, buflen: usize) callconv(.C) c_int {
+    pub fn write(_: *GetRequest, _: [*c]u8, _: usize) callconv(.C) c_int {
         logger.err("Called write() on GET request", .{});
         return -1;
     }
 
-    pub fn close(self: *GetRequest) callconv(.C) c_int {
+    pub fn close(_: *GetRequest) callconv(.C) c_int {
         return 0;
     }
 };
@@ -136,12 +136,12 @@ pub const PostRequest = struct {
         self.contents.deinit();
     }
 
-    pub fn read(self: *PostRequest, buf: [*c]u8, buflen: usize) callconv(.C) c_int {
+    pub fn read(_: *PostRequest, _: [*c]u8, _: usize) callconv(.C) c_int {
         logger.err("Called read() on POST request", .{});
         return -1;
     }
 
-    pub fn seek(self: *PostRequest, offset: c.off_t, origin: c_int) callconv(.C) c_int {
+    pub fn seek(_: *PostRequest, _: c.off_t, _: c_int) callconv(.C) c_int {
         logger.err("Called seek() on POST request", .{});
         return -1;
     }
@@ -158,7 +158,7 @@ pub const PostRequest = struct {
         var arena = ArenaAllocator.init(self.endpoint.allocator);
         defer arena.deinit();
         const server_request = zupnp.web.ServerPostRequest {
-            .allocator = &arena.allocator,
+            .allocator = arena.allocator(),
             .filename = self.filename,
             .contents = self.contents.items,
         };
@@ -178,7 +178,7 @@ pub const ChunkedRequest = struct {
         };
     }
 
-    pub fn deinit(self: *ChunkedRequest) void {
+    pub fn deinit(_: *ChunkedRequest) void {
         // Do nothing.
     }
 
@@ -202,12 +202,12 @@ pub const ChunkedRequest = struct {
         return 0;
     }
 
-    pub fn write(self: *ChunkedRequest, buf: [*c]u8, buflen: usize) callconv(.C) c_int {
+    pub fn write(_: *ChunkedRequest, _: [*c]u8, _: usize) callconv(.C) c_int {
         logger.err("Called write() on chunked request", .{});
         return -1;
     }
 
-    pub fn close(self: *ChunkedRequest) callconv(.C) c_int {
+    pub fn close(_: *ChunkedRequest) callconv(.C) c_int {
         return 0;
     }
 };

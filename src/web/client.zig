@@ -13,7 +13,7 @@ pub fn request(method: zupnp.web.Method, url: [:0]const u8, client_request: zupn
     logger.debug("Establishing a {s} request to {s}", .{method, url});
 
     const timeout = client_request.timeout orelse -1;
-    var handle: ?*c_void = undefined;
+    var handle: ?*anyopaque = undefined;
     if (c.is_error(c.UpnpOpenHttpConnection(url, &handle, timeout))) |err| {
         logger.err("Failed opening HTTP connection: {s}", .{err});
         return zupnp.Error;

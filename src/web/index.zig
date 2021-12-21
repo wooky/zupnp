@@ -28,7 +28,7 @@ pub const ClientRequest = struct {
 /// HTTP request sent by a client to a GET endpoint.
 pub const ServerGetRequest = struct {
     /// Scratch allocator. Everything using this allocator will be destroyed once the request gets processed.
-    allocator: *std.mem.Allocator,
+    allocator: std.mem.Allocator,
 
     /// Full path being requested.
     filename: [:0]const u8,
@@ -40,7 +40,7 @@ pub const ServerGetRequest = struct {
 /// HTTP request sent by a client to a POST endpoint.
 pub const ServerPostRequest = struct {
     /// Scratch allocator. Everything using this allocator will be destroyed once the request gets processed.
-    allocator: *std.mem.Allocator,
+    allocator: std.mem.Allocator,
 
     /// Full path being requested.
     filename: [:0]const u8,
@@ -52,7 +52,7 @@ pub const ServerPostRequest = struct {
 };
 
 /// HTTP method to make a request.
-pub const Method = enum(c_int) {
+pub const Method = enum(c.Upnp_HttpMethod) {
     PUT = c.UPNP_HTTPMETHOD_PUT,
     DELETE = c.UPNP_HTTPMETHOD_DELETE,
     GET = c.UPNP_HTTPMETHOD_GET,
@@ -60,6 +60,6 @@ pub const Method = enum(c_int) {
     POST = c.UPNP_HTTPMETHOD_POST,
 
     pub fn toUpnpMethod(self: Method) c.Upnp_HttpMethod {
-        return @intToEnum(c.Upnp_HttpMethod, @enumToInt(self));
+        return @enumToInt(self);
     }
 };

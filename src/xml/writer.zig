@@ -4,12 +4,12 @@ const xml = @import("../lib.zig").xml;
 
 const Writer = @This();
 const logger = std.log.scoped(.@"zupnp.xml.Writer");
-usingnamespace @import("traverser.zig").StructTraverser(Writer, logger);
+usingnamespace @import("traverser.zig").StructTraverser(Writer);
 
 arena: ArenaAllocator,
 doc: xml.Document = undefined,
 
-pub fn init(allocator: *std.mem.Allocator) Writer {
+pub fn init(allocator: std.mem.Allocator) Writer {
     return .{ .arena = ArenaAllocator.init(allocator) };
 }
 
@@ -48,17 +48,17 @@ pub fn handleOptional(self: *Writer, comptime name: []const u8, input: anytype, 
     }
 }
 
-pub fn handleString(self: *Writer, comptime name: []const u8, input: anytype, parent: xml.Element) !void {
-    var text = try self.doc.createTextNode(try self.arena.allocator.dupeZ(u8, input.*));
+pub fn handleString(self: *Writer, comptime _: []const u8, input: anytype, parent: xml.Element) !void {
+    var text = try self.doc.createTextNode(try self.arena.allocator().dupeZ(u8, input.*));
     try parent.appendChild(text);
 }
 
-pub fn handleInt(self: *Writer, comptime name: []const u8, input: anytype, parent: xml.Element) !void {
-    var text = try self.doc.createTextNode(try std.fmt.allocPrintZ(&self.arena.allocator, "{d}", .{input.*}));
+pub fn handleInt(self: *Writer, comptime _: []const u8, input: anytype, parent: xml.Element) !void {
+    var text = try self.doc.createTextNode(try std.fmt.allocPrintZ(self.arena.allocator(), "{d}", .{input.*}));
     try parent.appendChild(text);
 }
 
-pub fn handleBool(self: *Writer, comptime name: []const u8, input: anytype, parent: xml.Element) !void {
+pub fn handleBool(self: *Writer, comptime _: []const u8, input: anytype, parent: xml.Element) !void {
     var text = try self.doc.createTextNode(if (input.*) "1" else "0");
     try parent.appendChild(text);
 }
@@ -67,7 +67,7 @@ pub fn handleAttributes(self: *Writer, input: anytype, parent: xml.Element) !voi
     inline for (@typeInfo(@TypeOf(input.*)).Struct.fields) |field| {
         const field_value_opt: ?[]const u8 = @field(input.*, field.name);
         if (field_value_opt) |field_value| {
-            try parent.setAttribute(field.name ++ "\x00", try self.arena.allocator.dupeZ(u8, field_value));
+            try parent.setAttribute(field.name ++ "\x00", try self.arena.allocator().dupeZ(u8, field_value));
         }
     }
 }

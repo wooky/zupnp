@@ -13,7 +13,7 @@ base_url: ?[:0]const u8 = null,
 endpoints: std.ArrayList(request.Endpoint),
 static_root_dir: ?[:0]const u8 = null,
 
-pub fn init(allocator: *Allocator) Server {
+pub fn init(allocator: Allocator) Server {
     logger.debug("Callback init: GetInfo {d}; Open {d}; Read {d}; Seek {d}; Write {d}; Close {d}", .{
         c.UpnpVirtualDir_set_GetInfoCallback(getInfo),
         c.UpnpVirtualDir_set_OpenCallback(open),
@@ -42,8 +42,8 @@ pub fn deinit(self: *Server) void {
 
 /// FIXME if endpoint is created and Server (or ZUPnP) object's address is changed, a crash is guaranteed when making a request to that endpoint.
 pub fn createEndpoint(self: *Server, comptime T: type, config: anytype, destination: [:0]const u8) !*T {
-    var instance = try self.arena.allocator.create(T);
-    errdefer self.arena.allocator.destroy(instance);
+    var instance = try self.arena.allocator().create(T);
+    errdefer self.arena.allocator().destroy(instance);
     if (@hasDecl(T, "prepare")) {
         try instance.prepare(config);
     }
@@ -51,18 +51,18 @@ pub fn createEndpoint(self: *Server, comptime T: type, config: anytype, destinat
     try self.endpoints.append(.{
         // TODO allow passing in struct with no in-memory representation
         // This won't be easy, as calling a function with an instance with zero bits will completely discard that variable, causing massive havoc
-        .instance = @ptrCast(*c_void, instance),
-        .allocator = &self.arena.allocator,
+        .instance = @ptrCast(*anyopaque, instance),
+        .allocator = self.arena.allocator(),
         .deinitFn = c.mutateCallback(T, "deinit", request.Endpoint.DeinitFn),
         .getFn = c.mutateCallback(T, "get", request.Endpoint.GetFn),
         .postFn = c.mutateCallback(T, "post", request.Endpoint.PostFn),
     });
     errdefer { _ = self.endpoints.pop(); }
 
-    var old_cookie: ?*c_void = undefined;
+    var old_cookie: ?*anyopaque = undefined;
     if (c.is_error(c.UpnpAddVirtualDir(
         destination,
-        @ptrCast(*const c_void, &self.endpoints.items[self.endpoints.items.len - 1]),
+        @ptrCast(*const anyopaque, &self.endpoints.items[self.endpoints.items.len - 1]),
         &old_cookie
     ))) |err| {
         logger.err("Failed to add endpoint: {s}", .{err});
@@ -86,11 +86,11 @@ pub fn start(self: *Server) !void {
         logger.err("Failed to start server: {s}", .{err});
         return zupnp.Error;
     }
-    self.base_url = try std.fmt.allocPrintZ(&self.arena.allocator, "http://{s}:{d}", .{
+    self.base_url = try std.fmt.allocPrintZ(self.arena.allocator(), "http://{s}:{d}", .{
         c.UpnpGetServerIpAddress(),
         c.UpnpGetServerPort()
     });
-    logger.notice("Started listening on {s}", .{self.base_url});
+    logger.info("Started listening on {s}", .{self.base_url});
 }
 
 pub fn stop(self: *Server) void {
@@ -98,12 +98,12 @@ pub fn stop(self: *Server) void {
         self.base_url = null;
     }
     c.UpnpSetWebServerRootDir(null);
-    logger.notice("Stopped listening", .{});
+    logger.info("Stopped listening", .{});
 }
 
 /// Only used for GET and HEAD requests.
 /// TODO optimize for HEAD requests.
-fn getInfo(filename_c: [*c]const u8, info: ?*c.UpnpFileInfo, cookie: ?*const c_void, request_cookie: [*c]?*const c_void) callconv(.C) c_int {
+fn getInfo(filename_c: [*c]const u8, info: ?*c.UpnpFileInfo, cookie: ?*const anyopaque, request_cookie: [*c]?*const anyopaque) callconv(.C) c_int {
     const filename = std.mem.sliceTo(filename_c, 0);
     const client_address = zupnp.util.ClientAddress.fromSockaddStorage(c.UpnpFileInfo_get_CtrlPtIPAddr(info));
     logger.debug("GET {s} from {s}", .{filename, client_address.toString()});
@@ -120,7 +120,7 @@ fn getInfo(filename_c: [*c]const u8, info: ?*c.UpnpFileInfo, cookie: ?*const c_v
         return -1;
     };
     const req = zupnp.web.ServerGetRequest {
-        .allocator = &req_cookie.arena.allocator,
+        .allocator = req_cookie.arena.allocator(),
         .filename = filename,
         .client_address = &client_address,
     };
@@ -171,10 +171,10 @@ fn getInfo(filename_c: [*c]const u8, info: ?*c.UpnpFileInfo, cookie: ?*const c_v
     return return_code;
 }
 
-fn open(filename_c: [*c]const u8, mode: c.enum_UpnpOpenFileMode, cookie: ?*const c_void, request_cookie: ?*const c_void) callconv(.C) c.UpnpWebFileHandle {
+fn open(filename_c: [*c]const u8, mode: c.enum_UpnpOpenFileMode, cookie: ?*const anyopaque, request_cookie: ?*const anyopaque) callconv(.C) c.UpnpWebFileHandle {
     // UPNP_READ (i.e. GET) was already handled under get_info
 
-    if (mode == .UPNP_WRITE) {
+    if (mode == c.UPNP_WRITE) {
         const filename = std.mem.sliceTo(filename_c, 0);
         logger.debug("POST {s}", .{filename});
         const endpoint = request.Endpoint.fromCookie(cookie);
@@ -198,19 +198,19 @@ fn open(filename_c: [*c]const u8, mode: c.enum_UpnpOpenFileMode, cookie: ?*const
     return req.toFileHandle();
 }
 
-fn read(file_handle: c.UpnpWebFileHandle, buf: [*c]u8, buflen: usize, cookie: ?*const c_void, request_cookie: ?*const c_void) callconv(.C) c_int {
+fn read(file_handle: c.UpnpWebFileHandle, buf: [*c]u8, buflen: usize, _: ?*const anyopaque, _: ?*const anyopaque) callconv(.C) c_int {
     return dispatch(c_int, file_handle, "read", .{buf, buflen});
 }
 
-fn seek(file_handle: c.UpnpWebFileHandle, offset: c.off_t, origin: c_int, cookie: ?*const c_void, request_cookie: ?*const c_void) callconv(.C) c_int {
+fn seek(file_handle: c.UpnpWebFileHandle, offset: c.off_t, origin: c_int, _: ?*const anyopaque, _: ?*const anyopaque) callconv(.C) c_int {
     return dispatch(c_int, file_handle, "seek", .{offset, origin});
 }
 
-fn write(file_handle: c.UpnpWebFileHandle, buf: [*c]u8, buflen: usize, cookie: ?*const c_void, request_cookie: ?*const c_void) callconv(.C) c_int {
+fn write(file_handle: c.UpnpWebFileHandle, buf: [*c]u8, buflen: usize, _: ?*const anyopaque, _: ?*const anyopaque) callconv(.C) c_int {
     return dispatch(c_int, file_handle, "write", .{buf, buflen});
 }
 
-fn close(file_handle: c.UpnpWebFileHandle, cookie: ?*const c_void, request_cookie: ?*const c_void) callconv(.C) c_int {
+fn close(file_handle: c.UpnpWebFileHandle, _: ?*const anyopaque, request_cookie: ?*const anyopaque) callconv(.C) c_int {
     const res = dispatch(c_int, file_handle, "close", .{});
     dispatch(void, file_handle, "deinit", .{});
     if (request_cookie) |rc| {

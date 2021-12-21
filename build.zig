@@ -39,8 +39,8 @@ pub fn build(b: *Builder) void {
     test_step.dependOn(&main_tests.step);
 
     var docs_tests = addTest(b, mode, paths);
-    docs_tests.emit_docs = true;
-    docs_tests.emit_bin = false;
+    docs_tests.emit_docs = .emit;
+    docs_tests.emit_bin = .no_emit;
     docs_tests.output_dir = "docs";
     const docs_step = b.step("docs", "Create documentation");
     docs_step.dependOn(&docs_tests.step);

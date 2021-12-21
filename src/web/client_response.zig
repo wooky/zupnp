@@ -19,12 +19,12 @@ content_length: ?u32,
 
 timeout: c_int,
 // keepalive: bool,
-handle: ?*c_void,
+handle: ?*anyopaque,
 connection_closed: bool = false,
 
 /// Read full contents of HTTP request into a memory allocated string.
 /// Caller owns the returned string.
-pub fn readAll(self: *ClientResponse, allocator: *std.mem.Allocator) ![:0]u8 {
+pub fn readAll(self: *ClientResponse, allocator: std.mem.Allocator) ![:0]u8 {
     var buf = std.ArrayList(u8).init(allocator);
     defer buf.deinit();
     var chunk: [1024]u8 = undefined;

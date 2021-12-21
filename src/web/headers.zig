@@ -29,17 +29,17 @@ const ExtraHeadersIterator = struct {
     }
 };
 
-allocator: *Allocator,
+allocator: Allocator,
 items: HeaderItems,
 
-pub fn init(allocator: *Allocator) Headers {
+pub fn init(allocator: Allocator) Headers {
     return .{
         .allocator = allocator,
         .items = HeaderItems.init(allocator),
     };
 }
 
-pub fn fromHeaderList(allocator: *Allocator, header_list: ?*c.UpnpListHead) !Headers {
+pub fn fromHeaderList(allocator: Allocator, header_list: ?*c.UpnpListHead) !Headers {
     var items = HeaderItems.init(allocator);
     errdefer items.deinit();
     var iter = ExtraHeadersIterator.init(header_list);
@@ -70,7 +70,7 @@ pub fn addHeadersToList(self: *const Headers, list: *const c.UpnpListHead) !void
             c.UpnpExtraHeaders_set_resp(header, c.ixmlCloneDOMString(header_str_tmp)),
         });
         if (last) |l| {
-            c.UpnpExtraHeaders_add_to_list_node(last, c.mutate(*c.UpnpListHead, c.UpnpExtraHeaders_get_node(header)));
+            c.UpnpExtraHeaders_add_to_list_node(l, c.mutate(*c.UpnpListHead, c.UpnpExtraHeaders_get_node(header)));
         }
         last = header;
     }

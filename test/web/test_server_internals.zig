@@ -8,12 +8,12 @@ const SUT = struct {
     const Endpoint = struct {
         bogus: bool = true, // TODO remove me
 
-        pub fn get(self: *Endpoint, request: *const zupnp.web.ServerGetRequest) zupnp.web.ServerResponse {
+        pub fn get(_: *Endpoint, request: *const zupnp.web.ServerGetRequest) zupnp.web.ServerResponse {
             _ = request.allocator.alloc(u8, 1024) catch |e| @panic(@errorName(e));
             return zupnp.web.ServerResponse.contents(.{});
         }
 
-        pub fn post(self: *Endpoint, request: *const zupnp.web.ServerPostRequest) bool {
+        pub fn post(_: *Endpoint, request: *const zupnp.web.ServerPostRequest) bool {
             _ = request.allocator.alloc(u8, 1024) catch |e| @panic(@errorName(e));
             return true;
         }

@@ -19,7 +19,7 @@ pub fn main() !void {
 
 const Guestbook = struct {
     const Config = struct {
-        allocator: *Allocator,
+        allocator: Allocator,
     };
 
     const Entry = struct {
@@ -33,7 +33,7 @@ const Guestbook = struct {
 
     pub fn prepare(self: *Guestbook, config: Config) !void {
         self.arena = ArenaAllocator.init(config.allocator);
-        self.entries = std.ArrayList(Entry).init(&self.arena.allocator);
+        self.entries = std.ArrayList(Entry).init(self.arena.allocator());
     }
 
     pub fn deinit(self: *Guestbook) void {
@@ -52,7 +52,7 @@ const Guestbook = struct {
     pub fn post(self: *Guestbook, request: *const zupnp.web.ServerPostRequest) bool {
         logger.debug("{s}", .{request.contents});
         var token_stream = std.json.TokenStream.init(request.contents);
-        var entry = std.json.parse(Entry, &token_stream, .{ .allocator = &self.arena.allocator }) catch |e| {
+        var entry = std.json.parse(Entry, &token_stream, .{ .allocator = self.arena.allocator() }) catch |e| {
             logger.warn("{s}", .{e});
             return false;
         };

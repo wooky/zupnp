@@ -22,13 +22,13 @@ pub const ZUPnP = struct {
         port: u16 = 0,
     };
 
-    allocator: *Allocator,
+    allocator: Allocator,
     /// Device manager.
     device_manager: upnp.device.Manager,
     /// Embedded web server.
     server: web.Server,
 
-    pub fn init(allocator: *Allocator, config: Config) !ZUPnP {
+    pub fn init(allocator: Allocator, config: Config) !ZUPnP {
         if (c.is_error(c.UpnpInit2(config.if_name orelse null, config.port))) |err| {
             logger.err("Failed to initialize library: {s}", .{err});
             return error.UPnPError;

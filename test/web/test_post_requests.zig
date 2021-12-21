@@ -8,7 +8,7 @@ const SUT = struct {
     const Endpoint = struct {
         last_message: []const u8,
 
-        pub fn prepare(self: *Endpoint, config: void) !void {
+        pub fn prepare(self: *Endpoint, _: void) !void {
             self.last_message = try testing.allocator.alloc(u8, 0);
         }
 

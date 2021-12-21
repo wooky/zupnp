@@ -13,7 +13,7 @@ const SUT = struct {
     const Endpoint = struct {
         bogus: bool = true, // TODO remove me
 
-        pub fn get(self: *Endpoint, request: *const zupnp.web.ServerGetRequest) zupnp.web.ServerResponse {
+        pub fn get(_: *Endpoint, _: *const zupnp.web.ServerGetRequest) zupnp.web.ServerResponse {
             return zupnp.web.ServerResponse.contents(.{ .contents = contents, .content_type = content_type });
         }
     };
