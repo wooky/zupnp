@@ -69,17 +69,15 @@ pub fn createDevice(
 
     var service_definitions = std.ArrayList(zupnp.upnp.definition.DeviceServiceDefinition).init(arena.allocator());
     try instance.prepare(self.arena.allocator(), config, &service_definitions);
-    // TODO derive UDN in some deterministic way so that reconnecting to the device after program restart still works.
-    const udn = try std.fmt.allocPrint(arena.allocator(), "uuid:{s}", .{zupnp.util.uuid.generateUuid()});
     const service_list = try arena.allocator().alloc(zupnp.upnp.definition.ServiceDefinition, service_definitions.items.len);
     for (service_definitions.items) |service_definition, i| {
-        const scpd_url = try self.scpd_endpoint.?.addFile(udn, service_definition.service_id, service_definition.scpd_xml);
+        const scpd_url = try self.scpd_endpoint.?.addFile(device_parameters.UDN, service_definition.service_id, service_definition.scpd_xml);
         service_list[i] = .{
             .serviceType = service_definition.service_type,
             .serviceId = service_definition.service_id,
             .SCPDURL = scpd_url,
-            .controlURL = try std.fmt.allocPrint(arena.allocator(), "/control/{s}/{s}", .{udn, service_definition.service_id}),
-            .eventSubURL = try std.fmt.allocPrint(arena.allocator(), "/event/{s}/{s}", .{udn, service_definition.service_id}),
+            .controlURL = try std.fmt.allocPrint(arena.allocator(), "/control/{s}/{s}", .{device_parameters.UDN, service_definition.service_id}),
+            .eventSubURL = try std.fmt.allocPrint(arena.allocator(), "/event/{s}/{s}", .{device_parameters.UDN, service_definition.service_id}),
         };
     }
 
@@ -87,7 +85,7 @@ pub fn createDevice(
         .root = .{
             .device = .{
                 .deviceType = T.device_type,
-                .UDN = udn,
+                .UDN = device_parameters.UDN,
                 .friendlyName = device_parameters.friendlyName,
                 .manufacturer = device_parameters.manufacturer,
                 .manufacturerURL = device_parameters.manufacturerURL,
@@ -110,11 +108,11 @@ pub fn createDevice(
     defer device_str.deinit();
 
     // TODO Put all of this much earlier than here
-    if (self.devices.contains(udn)) {
-        logger.err("Device {s} is already registered", .{udn});
+    if (self.devices.contains(device_parameters.UDN)) {
+        logger.err("Device {s} is already registered", .{device_parameters.UDN});
         return zupnp.Error;
     }
-    const entry = try self.devices.getOrPutValue(udn, .{
+    const entry = try self.devices.getOrPutValue(device_parameters.UDN, .{
         .instance = @ptrCast(*anyopaque, instance),
         .allocator = self.arena.allocator(),
         .deinitFn = c.mutateCallback(T, "deinit", RegisteredDevice.DeinitFn),
@@ -123,7 +121,7 @@ pub fn createDevice(
     });
     errdefer {
         entry.value_ptr.deinit();
-        _ = self.devices.remove(udn);
+        _ = self.devices.remove(device_parameters.UDN);
     }
 
     if (c.is_error(c.UpnpRegisterRootDevice2(
@@ -139,7 +137,7 @@ pub fn createDevice(
         return zupnp.Error;
     }
 
-    logger.info("Registered device {s} with UDN {s}", .{T, udn});
+    logger.info("Registered device {s} with UDN {s}", .{T, device_parameters.UDN});
     return instance;
 }
 

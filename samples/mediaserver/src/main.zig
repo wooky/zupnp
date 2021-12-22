@@ -11,6 +11,7 @@ pub fn main() !void {
     defer std.heap.page_allocator.free(zig_png_url);
 
     var media_server = try lib.device_manager.createDevice(zupnp.upnp.device.MediaServer, .{
+        .UDN = &try zupnp.util.uuid.generateUuid(),
         .friendlyName = "ZUPnP Test",
         .manufacturer = "ZUPnP",
         .modelName = "Put something fun here",

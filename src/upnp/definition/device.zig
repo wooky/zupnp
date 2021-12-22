@@ -13,7 +13,6 @@ pub const Device = struct {
         device: zupnp.util.structure.concatStructDeclarations(.{
             struct {
                 deviceType: []const u8,
-                UDN: []const u8,
                 serviceList: struct {
                     service: []const ServiceDefinition,
                 },
@@ -24,6 +23,7 @@ pub const Device = struct {
 };
 
 pub const UserDefinedDeviceParameters = struct {
+    UDN: []const u8, // use zupnp.util.uuid.generateUuid() if you don't care
     friendlyName: []const u8,
     manufacturer: []const u8,
     manufacturerURL: ?[]const u8 = null,
