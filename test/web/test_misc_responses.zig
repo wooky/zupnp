@@ -8,9 +8,7 @@ const SUT = struct {
     const dest = "/endpoint";
 
     const Endpoint = struct {
-        bogus: bool = true, // TODO remove me
-
-        pub fn get(_: *Endpoint, request: *const zupnp.web.ServerGetRequest) zupnp.web.ServerResponse {
+        pub fn get(request: *const zupnp.web.ServerGetRequest) zupnp.web.ServerResponse {
             const action = request.filename[std.mem.lastIndexOf(u8, request.filename, "/").? + 1 ..];
             if (std.mem.eql(u8, action, not_found)) {
                 return zupnp.web.ServerResponse.notFound();

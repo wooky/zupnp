@@ -31,8 +31,9 @@ pub fn init(allocator: Allocator) Server {
 
 pub fn deinit(self: *Server) void {
     for (self.endpoints.items) |endpoint| {
-        if (endpoint.deinitFn) |deinitFn| {
-            deinitFn(endpoint.instance);
+        switch (endpoint.callbacks) {
+            .WithInstance => |cb| if (cb.deinitFn) |deinitFn| deinitFn(cb.instance),
+            .WithoutInstance => |cb| if (cb.deinitFn) |deinitFn| deinitFn(),
         }
     }
     self.base_url = null;
@@ -48,14 +49,22 @@ pub fn createEndpoint(self: *Server, comptime T: type, config: anytype, destinat
         try instance.prepare(config);
     }
 
+    // TODO clean up this nuclear spill
     try self.endpoints.append(.{
-        // TODO allow passing in struct with no in-memory representation
-        // This won't be easy, as calling a function with an instance with zero bits will completely discard that variable, causing massive havoc
-        .instance = @ptrCast(*anyopaque, instance),
         .allocator = self.arena.allocator(),
-        .deinitFn = c.mutateCallback(T, "deinit", request.Endpoint.DeinitFn),
-        .getFn = c.mutateCallback(T, "get", request.Endpoint.GetFn),
-        .postFn = c.mutateCallback(T, "post", request.Endpoint.PostFn),
+        .callbacks =
+            if (@bitSizeOf(T) == 0) .{ .WithoutInstance = .{
+                .deinitFn = c.mutateCallback(T, "deinit", std.meta.Child(std.meta.fieldInfo(std.meta.TagPayload(request.Endpoint.Callbacks, .WithoutInstance), .deinitFn).field_type)),
+                .getFn = c.mutateCallback(T, "get", std.meta.Child(std.meta.fieldInfo(std.meta.TagPayload(request.Endpoint.Callbacks, .WithoutInstance), .getFn).field_type)),
+                .postFn = c.mutateCallback(T, "post", std.meta.Child(std.meta.fieldInfo(std.meta.TagPayload(request.Endpoint.Callbacks, .WithoutInstance), .postFn).field_type)),
+            }}
+            else .{ .WithInstance = .{
+                .instance = instance,
+                .deinitFn = c.mutateCallback(T, "deinit", std.meta.Child(std.meta.fieldInfo(std.meta.TagPayload(request.Endpoint.Callbacks, .WithInstance), .deinitFn).field_type)),
+                .getFn = c.mutateCallback(T, "get", std.meta.Child(std.meta.fieldInfo(std.meta.TagPayload(request.Endpoint.Callbacks, .WithInstance), .getFn).field_type)),
+                .postFn = c.mutateCallback(T, "post", std.meta.Child(std.meta.fieldInfo(std.meta.TagPayload(request.Endpoint.Callbacks, .WithInstance), .postFn).field_type)),
+            }}
+            ,
     });
     errdefer { _ = self.endpoints.pop(); }
 
@@ -109,7 +118,10 @@ fn getInfo(filename_c: [*c]const u8, info: ?*c.UpnpFileInfo, cookie: ?*const any
     logger.debug("GET {s} from {s}", .{filename, client_address.toString()});
 
     const endpoint = request.Endpoint.fromCookie(cookie);
-    if (endpoint.getFn == null) {
+    if (switch (endpoint.callbacks) {
+        .WithInstance => |cb| cb.getFn == null,
+        .WithoutInstance => |cb| cb.getFn == null,
+    }) {
         logger.debug("No GET endpoint defined", .{});
         return -1;
     }
@@ -125,7 +137,10 @@ fn getInfo(filename_c: [*c]const u8, info: ?*c.UpnpFileInfo, cookie: ?*const any
         .client_address = &client_address,
     };
 
-    const response = (endpoint.getFn.?)(endpoint.instance, &req);
+    const response = switch (endpoint.callbacks) {
+        .WithInstance => |cb| (cb.getFn.?)(cb.instance, &req),
+        .WithoutInstance => |cb| (cb.getFn.?)(&req),
+    };
     var return_code: c_int = 0;
     var is_readable = true;
     switch (response) {
@@ -178,7 +193,10 @@ fn open(filename_c: [*c]const u8, mode: c.enum_UpnpOpenFileMode, cookie: ?*const
         const filename = std.mem.sliceTo(filename_c, 0);
         logger.debug("POST {s}", .{filename});
         const endpoint = request.Endpoint.fromCookie(cookie);
-        if (endpoint.postFn == null) {
+        if (switch (endpoint.callbacks) {
+            .WithInstance => |cb| cb.postFn == null,
+            .WithoutInstance => |cb| cb.postFn == null,
+        }) {
             logger.debug("No POST endpoint defined", .{});
             return null;
         }

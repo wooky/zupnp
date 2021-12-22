@@ -35,7 +35,7 @@ pub fn mutateCallback(
         @compileError("Callback has wrong number of arguments");
     }
     inline for (callback_fn_info.args) |arg, i| {
-        if (i == 0 and arg.arg_type != *InstanceType) {
+        if (i == 0 and arg.arg_type != *InstanceType and arg.arg_type != endpoint_type_info.args[i].arg_type.?) {
             @compileError("Argument 1 has wrong type");
         }
         if (i > 0 and arg.arg_type.? != endpoint_type_info.args[i].arg_type.?) {

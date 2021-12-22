@@ -7,15 +7,22 @@ const zupnp = @import("../lib.zig");
 const logger = std.log.scoped(.@"zupnp.web.request");
 
 pub const Endpoint = struct {
-    pub const DeinitFn = fn(*anyopaque) void;
-    pub const GetFn = fn(*anyopaque, *const zupnp.web.ServerGetRequest) zupnp.web.ServerResponse;
-    pub const PostFn = fn(*anyopaque, *const zupnp.web.ServerPostRequest) bool;
-
-    instance: *anyopaque,
+    pub const Callbacks = union (enum) {
+        WithInstance: struct {
+            instance: *anyopaque,
+            deinitFn: ?fn(*anyopaque) void,
+            getFn: ?fn(*anyopaque, *const zupnp.web.ServerGetRequest) zupnp.web.ServerResponse,
+            postFn: ?fn(*anyopaque, *const zupnp.web.ServerPostRequest) bool,
+        },
+        WithoutInstance: struct {
+            deinitFn: ?fn() void,
+            getFn: ?fn(*const zupnp.web.ServerGetRequest) zupnp.web.ServerResponse,
+            postFn: ?fn(*const zupnp.web.ServerPostRequest) bool,
+        },
+    };
+    
     allocator: std.mem.Allocator,
-    deinitFn: ?DeinitFn,
-    getFn: ?GetFn,
-    postFn: ?PostFn,
+    callbacks: Callbacks,
 
     pub fn fromCookie(cookie: ?*const anyopaque) *Endpoint {
         return c.mutate(*Endpoint, cookie);
@@ -162,7 +169,10 @@ pub const PostRequest = struct {
             .filename = self.filename,
             .contents = self.contents.items,
         };
-        _ = (self.endpoint.postFn.?)(self.endpoint.instance, &server_request);
+        _ = switch (self.endpoint.callbacks) {
+            .WithInstance => |cb| (cb.postFn.?)(cb.instance, &server_request),
+            .WithoutInstance => |cb| (cb.postFn.?)(&server_request),
+        };
         return 0;
     }
 };
