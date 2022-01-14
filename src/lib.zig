@@ -1,3 +1,5 @@
+pub const integration = @import("integration/index.zig");
+pub const ssdp = @import("ssdp/index.zig");
 pub const upnp = @import("upnp/index.zig");
 pub const util = @import("util/index.zig");
 pub const web = @import("web/index.zig");

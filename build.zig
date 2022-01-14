@@ -34,6 +34,10 @@ pub fn build(b: *Builder) void {
     lib.setBuildMode(mode);
     lib.install();
 
+    // TODO set these imports based on compiler flags
+    lib.addPackagePath("network", "vendor/zig-serve/vendor/network/network.zig");
+    lib.addPackagePath("serve", "vendor/zig-serve/src/serve.zig");
+
     var main_tests = addTest(b, mode, paths);
     const test_step = b.step("test", "Run library tests");
     test_step.dependOn(&main_tests.step);

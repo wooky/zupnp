@@ -1,0 +1,3 @@
+[submodule "vendor/zig-serve"]
+	path = vendor/zig-serve
+	url = https://github.com/MasterQ32/zig-serve.git
