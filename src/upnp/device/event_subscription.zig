@@ -1,6 +1,7 @@
 const std = @import("std");
 const c = @import("../../c.zig");
 const zupnp = @import("../../lib.zig");
+const xml = @import("xml");
 
 const logger = std.log.scoped(.@"zupnp.upnp.device.event_subscription");
 
@@ -21,7 +22,7 @@ pub const EventSubscriptionRequest = struct {
 };
 
 pub const EventSubscriptionResult = struct {
-    property_set: ?zupnp.xml.Document,
+    property_set: ?xml.Document,
 
     pub fn createResult(arguments: anytype) !EventSubscriptionResult {
         var doc: ?*c.IXML_Document = null;
@@ -34,7 +35,7 @@ pub const EventSubscriptionResult = struct {
             }
         }
         return EventSubscriptionResult {
-            .property_set = zupnp.xml.Document.init(doc.?),
+            .property_set = xml.Document.init(c.mutate(*xml.c.IXML_Document, doc.?)),
         };
     }
 

@@ -3,6 +3,7 @@ const Allocator = std.mem.Allocator;
 const ArenaAllocator = std.heap.ArenaAllocator;
 const c = @import("../../c.zig");
 const zupnp = @import("../../lib.zig");
+const xml = @import("xml");
 
 const Manager = @This();
 const logger = std.log.scoped(.@"zupnp.upnp.device.Manager");
@@ -102,7 +103,7 @@ pub fn createDevice(
             }
         }
     };
-    const device_document = try zupnp.xml.encode(arena.allocator(), device);
+    const device_document = try xml.encode(arena.allocator(), device);
     defer device_document.deinit();
     var device_str = try device_document.toString();
     defer device_str.deinit();
@@ -162,7 +163,7 @@ fn onAction(device: *RegisteredDevice, event: ?*const anyopaque) void {
     var result: zupnp.upnp.device.ActionResult = device.handleActionFn(device.instance, action);
     
     if (result.action_result) |action_result| {
-        _ = c.UpnpActionRequest_set_ActionResult(action_request, action_result.handle);
+        _ = c.UpnpActionRequest_set_ActionResult(action_request, c.mutate(*c.IXML_Document, action_result.handle));
     }
     _ = c.UpnpActionRequest_set_ErrCode(action_request, result.err_code);
 }
@@ -180,7 +181,7 @@ fn onEventSubscribe(device: *RegisteredDevice, event: ?*const anyopaque) void {
             device.device_handle,
             event_subscription.getDeviceUdn(),
             event_subscription.getServiceId(),
-            property_set.handle,
+            c.mutate(*c.IXML_Document, property_set.handle),
             event_subscription.getSid()
         ))) |err| {
             logger.warn("Failed to accept event subscription: {s}", .{err});

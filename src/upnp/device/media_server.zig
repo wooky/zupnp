@@ -1,6 +1,7 @@
 const std = @import("std");
 const Allocator = std.mem.Allocator;
 const zupnp = @import("../../lib.zig");
+const xml = @import("xml");
 const ActionRequest = zupnp.upnp.device.ActionRequest;
 const ActionResult = zupnp.upnp.device.ActionResult;
 const DeviceServiceDefinition = zupnp.upnp.definition.DeviceServiceDefinition;
@@ -92,7 +93,7 @@ pub const ContentDirectory = struct {
     fn browse(self: *ContentDirectory, request: ActionRequest) !ActionResult {
         var str = try request.getActionRequest().toString();
         defer str.deinit();
-        var browse_input = zupnp.xml.decode(
+        var browse_input = xml.decode(
             request.allocator,
             zupnp.upnp.definition.content_directory.BrowseInput,
             request.getActionRequest()
@@ -122,7 +123,7 @@ pub const ContentDirectory = struct {
         const count = containers.items.len + items.items.len;
         var count_buf: [8]u8 = undefined;
         var count_str = try std.fmt.bufPrintZ(&count_buf, "{d}", .{count});
-        var didl = try zupnp.xml.encode(request.allocator, cd.DIDLLite {
+        var didl = try xml.encode(request.allocator, cd.DIDLLite {
             .@"DIDL-Lite" = .{
                 .container = containers.items,
                 .item = items.items,

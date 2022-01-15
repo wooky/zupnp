@@ -1,7 +1,6 @@
 pub const upnp = @import("upnp/index.zig");
 pub const util = @import("util/index.zig");
 pub const web = @import("web/index.zig");
-pub const xml = @import("xml/index.zig");
 
 pub const Error = error.UPnPError;
 

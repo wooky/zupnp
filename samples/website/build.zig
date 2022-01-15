@@ -19,7 +19,10 @@ pub fn build(b: *std.build.Builder) void {
     exe.linkLibC();
     exe.linkSystemLibrary("upnp");
     exe.linkSystemLibrary("ixml");
-    exe.addPackagePath("zupnp", "../../src/lib.zig");
+    // TODO https://github.com/ziglang/zig/issues/855
+    const xml_package = std.build.Pkg{ .name = "xml", .path = .{ .path = "../../vendor/xml/src/lib.zig" } };
+    const zupnp_package = std.build.Pkg{ .name = "zupnp", .path = .{ .path = "../../src/lib.zig" }, .dependencies = &[_]std.build.Pkg{ xml_package } };
+    exe.addPackage(zupnp_package);
 
     const run_cmd = exe.run();
     run_cmd.step.dependOn(b.getInstallStep());

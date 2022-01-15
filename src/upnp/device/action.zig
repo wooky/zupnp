@@ -1,6 +1,7 @@
 const std = @import("std");
 const c = @import("../../c.zig");
 const zupnp = @import("../../lib.zig");
+const xml = @import("xml");
 
 const logger = std.log.scoped(.@"zupnp.upnp.device.action");
 
@@ -20,8 +21,8 @@ pub const ActionRequest = struct {
         return c.UpnpActionRequest_get_ActionName_cstr(self.handle)[0..c.UpnpActionRequest_get_ActionName_Length(self.handle):0];
     }
 
-    pub fn getActionRequest(self: *const ActionRequest) zupnp.xml.Document {
-        return zupnp.xml.Document.init(c.UpnpActionRequest_get_ActionRequest(self.handle));
+    pub fn getActionRequest(self: *const ActionRequest) xml.Document {
+        return xml.Document.init(c.mutate(*xml.c.IXML_Document, c.UpnpActionRequest_get_ActionRequest(self.handle)));
     }
 
     pub fn getClientAddress(self: *const ActionRequest) zupnp.util.ClientAddress {
@@ -30,7 +31,7 @@ pub const ActionRequest = struct {
 };
 
 pub const ActionResult = struct {
-    action_result: ?zupnp.xml.Document, // DO NOT DEINIT! Once passed to UpnpActionRequest_set_ActionResult, it'll get automatically free'd.
+    action_result: ?xml.Document, // DO NOT DEINIT! Once passed to UpnpActionRequest_set_ActionResult, it'll get automatically free'd.
     err_code: c_int,
 
     pub fn createResult(service_type: [:0]const u8, arguments: anytype) !ActionResult {
@@ -45,7 +46,7 @@ pub const ActionResult = struct {
             }
         }
         return ActionResult {
-            .action_result = zupnp.xml.Document.init(doc.?),
+            .action_result = xml.Document.init(c.mutate(*xml.c.IXML_Document, doc.?)),
             .err_code = 0,
         };
     }

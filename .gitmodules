@@ -1,0 +1,3 @@
+[submodule "vendor/xml"]
+	path = vendor/xml
+	url = git@github.com:wooky/zig-xml.git
