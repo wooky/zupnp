@@ -15,13 +15,13 @@ pub fn build(b: *std.build.Builder) void {
     exe.setTarget(target);
     exe.setBuildMode(mode);
     exe.install();
-    exe.addIncludeDir("/usr/include/upnp");
+    exe.addIncludePath("/usr/include/upnp");
     exe.linkLibC();
     exe.linkSystemLibrary("upnp");
     exe.linkSystemLibrary("ixml");
     // TODO https://github.com/ziglang/zig/issues/855
-    const xml_package = std.build.Pkg{ .name = "xml", .path = .{ .path = "../../vendor/xml/src/lib.zig" } };
-    const zupnp_package = std.build.Pkg{ .name = "zupnp", .path = .{ .path = "../../src/lib.zig" }, .dependencies = &[_]std.build.Pkg{ xml_package } };
+    const xml_package = std.build.Pkg{ .name = "xml", .source = .{ .path = "../../vendor/xml/src/lib.zig" } };
+    const zupnp_package = std.build.Pkg{ .name = "zupnp", .source = .{ .path = "../../src/lib.zig" }, .dependencies = &[_]std.build.Pkg{ xml_package } };
     exe.addPackage(zupnp_package);
 
     const run_cmd = exe.run();

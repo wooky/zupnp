@@ -29,7 +29,7 @@ pub const EventSubscriptionResult = struct {
         inline for (@typeInfo(@TypeOf(arguments)).Struct.fields) |field| {
             const key = field.name ++ "\x00";
             const value: [:0]const u8 = @field(arguments, field.name);
-            if (c.is_error(c.UpnpAddToPropertySet(&doc, key, value))) |err| {
+            if (c.is_error(c.UpnpAddToPropertySet(&doc, key, value.ptr))) |err| {
                 logger.err("Cannot create response: {s}", .{err});
                 return zupnp.Error;
             }

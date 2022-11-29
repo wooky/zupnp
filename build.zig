@@ -21,10 +21,10 @@ pub fn populateStep(step: *std.build.LibExeObjStep, paths: Paths) void {
     step.linkLibC();
     step.linkSystemLibrary("upnp");
     step.linkSystemLibrary("ixml");
-    step.addIncludeDir(paths.upnp_header_path);
-    step.addIncludeDir(paths.ixml_header_superpath);
-    step.addLibPath(paths.upnp_lib_path);
-    step.addLibPath(paths.ixml_lib_path);
+    step.addIncludePath(paths.upnp_header_path);
+    step.addIncludePath(paths.ixml_header_superpath);
+    step.addLibraryPath(paths.upnp_lib_path);
+    step.addLibraryPath(paths.ixml_lib_path);
 }
 
 pub fn build(b: *Builder) void {
@@ -51,8 +51,8 @@ fn addTest(b: *Builder, mode: std.builtin.Mode, paths: Paths) *std.build.LibExeO
     var tests = b.addTest("test/tests.zig");
     tests.setBuildMode(mode);
     // TODO https://github.com/ziglang/zig/issues/855
-    const xml_package = std.build.Pkg{ .name = "xml", .path = .{ .path = "vendor/xml/src/lib.zig" } };
-    const zupnp_package = std.build.Pkg{ .name = "zupnp", .path = .{ .path = "src/lib.zig" }, .dependencies = &[_]std.build.Pkg{ xml_package } };
+    const xml_package = std.build.Pkg{ .name = "xml", .source = .{ .path = "vendor/xml/src/lib.zig" } };
+    const zupnp_package = std.build.Pkg{ .name = "zupnp", .source = .{ .path = "src/lib.zig" }, .dependencies = &[_]std.build.Pkg{ xml_package } };
     tests.addPackage(zupnp_package);
     populateStep(tests, paths);
     return tests;

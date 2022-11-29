@@ -24,7 +24,7 @@ const SUT = struct {
         self.lib = try zupnp.ZUPnP.init(testing.allocator, .{});
         _ = try self.lib.server.createEndpoint(Endpoint, {}, dest);
         try self.lib.server.start();
-        self.url = try std.fmt.allocPrintZ(testing.allocator, "{s}{s}", .{self.lib.server.base_url, dest});
+        self.url = try std.fmt.allocPrintZ(testing.allocator, "{s}{s}", .{self.lib.server.base_url.?, dest});
     }
 
     fn deinit(self: *SUT) void {

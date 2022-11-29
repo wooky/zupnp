@@ -67,7 +67,7 @@ pub fn addHeadersToList(self: *const Headers, list: *const c.UpnpListHead) !void
         defer self.allocator.free(header_str_tmp);
         var header = c.UpnpExtraHeaders_new();
         logger.debug("resp err {d}", .{
-            c.UpnpExtraHeaders_set_resp(header, c.ixmlCloneDOMString(header_str_tmp)),
+            c.UpnpExtraHeaders_set_resp(header, c.ixmlCloneDOMString(header_str_tmp.ptr)),
         });
         if (last) |l| {
             c.UpnpExtraHeaders_add_to_list_node(l, c.mutate(*c.UpnpListHead, c.UpnpExtraHeaders_get_node(header)));

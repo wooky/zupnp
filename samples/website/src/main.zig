@@ -43,7 +43,7 @@ const Guestbook = struct {
     pub fn get(self: *Guestbook, request: *const zupnp.web.ServerGetRequest) zupnp.web.ServerResponse {
         var buf = std.ArrayList(u8).init(request.allocator);
         std.json.stringify(self.entries.items, .{}, buf.writer()) catch |e| {
-            logger.warn("{s}", .{e});
+            logger.warn("{!}", .{e});
             return zupnp.web.ServerResponse.forbidden();
         };
         return zupnp.web.ServerResponse.contents(.{ .contents = buf.toOwnedSlice(), .content_type = "application/json" });
@@ -53,7 +53,7 @@ const Guestbook = struct {
         logger.debug("{s}", .{request.contents});
         var token_stream = std.json.TokenStream.init(request.contents);
         var entry = std.json.parse(Entry, &token_stream, .{ .allocator = self.arena.allocator() }) catch |e| {
-            logger.warn("{s}", .{e});
+            logger.warn("{!}", .{e});
             return false;
         };
         entry.timestamp = std.time.milliTimestamp();

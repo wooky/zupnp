@@ -7,7 +7,7 @@ const ActionResult = zupnp.upnp.device.ActionResult;
 const EventSubscriptionRequest = zupnp.upnp.device.EventSubscriptionRequest;
 const EventSubscriptionResult = zupnp.upnp.device.EventSubscriptionResult;
 
-pub fn AbstractDevice(comptime DeviceType: type, logger: anytype, services: anytype) type {
+pub fn AbstractDevice(comptime DeviceType: type, comptime logger: anytype, comptime services: anytype) type {
     return struct {
         pub fn handleAction(self: *DeviceType, request: ActionRequest) ActionResult {
             const service_id = request.getServiceId();
@@ -42,7 +42,7 @@ pub fn AbstractDevice(comptime DeviceType: type, logger: anytype, services: anyt
     };
 }
 
-pub fn AbstractService(comptime ServiceType: type, logger: anytype, actions_to_functions: anytype) type {
+pub fn AbstractService(comptime ServiceType: type, comptime logger: anytype, comptime actions_to_functions: anytype) type {
     return struct {
         pub fn handleAction(self: *ServiceType, request: ActionRequest) ActionResult {
             const action_name = request.getActionName();

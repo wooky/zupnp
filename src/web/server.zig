@@ -70,7 +70,7 @@ pub fn createEndpoint(self: *Server, comptime T: type, config: anytype, destinat
 
     var old_cookie: ?*anyopaque = undefined;
     if (c.is_error(c.UpnpAddVirtualDir(
-        destination,
+        destination.ptr,
         @ptrCast(*const anyopaque, &self.endpoints.items[self.endpoints.items.len - 1]),
         &old_cookie
     ))) |err| {
@@ -87,7 +87,7 @@ pub fn createEndpoint(self: *Server, comptime T: type, config: anytype, destinat
 
 pub fn start(self: *Server) !void {
     const err_code = if (self.static_root_dir) |srd|
-        c.UpnpSetWebServerRootDir(srd)
+        c.UpnpSetWebServerRootDir(srd.ptr)
     else
         c.UpnpEnableWebserver(1)
     ;
@@ -99,7 +99,7 @@ pub fn start(self: *Server) !void {
         c.UpnpGetServerIpAddress(),
         c.UpnpGetServerPort()
     });
-    logger.info("Started listening on {s}", .{self.base_url});
+    logger.info("Started listening on {?s}", .{self.base_url});
 }
 
 pub fn stop(self: *Server) void {
@@ -127,7 +127,7 @@ fn getInfo(filename_c: [*c]const u8, info: ?*c.UpnpFileInfo, cookie: ?*const any
     }
     
     var req_cookie = request.RequestCookie.create(endpoint.allocator) catch |err| {
-        logger.err("Failed to create request cookie: {s}", .{err});
+        logger.err("Failed to create request cookie: {!}", .{err});
         // TODO return early here
         return -1;
     };
@@ -149,12 +149,12 @@ fn getInfo(filename_c: [*c]const u8, info: ?*c.UpnpFileInfo, cookie: ?*const any
         .Contents => |cnt| {
             req_cookie.request = .{ .Get = request.GetRequest.init(cnt.contents) };
             logger.debug("ContentType err {d} FileLength err {d}", .{
-                c.UpnpFileInfo_set_ContentType(info, cnt.content_type),
+                c.UpnpFileInfo_set_ContentType(info, cnt.content_type.ptr),
                 c.UpnpFileInfo_set_FileLength(info, @intCast(c_long, cnt.contents.len))
             });
             if (cnt.headers) |*headers| {
                 headers.addHeadersToList(c.UpnpFileInfo_get_ExtraHeadersList(info)) catch |err| {
-                    logger.err("Failed to add headers: {s}", .{err});
+                    logger.err("Failed to add headers: {!}", .{err});
                     return -1;
                 };
             }
@@ -162,12 +162,12 @@ fn getInfo(filename_c: [*c]const u8, info: ?*c.UpnpFileInfo, cookie: ?*const any
         .Chunked => |chk| {
             req_cookie.request = .{ .Chunked = request.ChunkedRequest.init(chk.handler) };
             logger.debug("ContentType err {d} FileLength err {d}", .{
-                c.UpnpFileInfo_set_ContentType(info, chk.content_type),
+                c.UpnpFileInfo_set_ContentType(info, chk.content_type.ptr),
                 c.UpnpFileInfo_set_FileLength(info, c.UPNP_USING_CHUNKED)
             });
             if (chk.headers) |*headers| {
                 headers.addHeadersToList(c.UpnpFileInfo_get_ExtraHeadersList(info)) catch |err| {
-                    logger.err("Failed to add headers: {s}", .{err});
+                    logger.err("Failed to add headers: {!}", .{err});
                     return -1;
                 };
             }
@@ -202,7 +202,7 @@ fn open(filename_c: [*c]const u8, mode: c.enum_UpnpOpenFileMode, cookie: ?*const
         }
 
         var req = request.PostRequest.createRequest(endpoint, filename) catch |err| {
-            logger.err("Failed to create POST request object: {s}", .{err});
+            logger.err("Failed to create POST request object: {!}", .{err});
             return null;
         };
         return req.toFileHandle();
@@ -210,7 +210,7 @@ fn open(filename_c: [*c]const u8, mode: c.enum_UpnpOpenFileMode, cookie: ?*const
 
     var req_cookie = request.RequestCookie.fromVoidPointer(request_cookie);
     const req = req_cookie.toRequest() catch |err| {
-        logger.err("Failed to create GET request object: {s}", .{err});
+        logger.err("Failed to create GET request object: {!}", .{err});
         return null;
     };
     return req.toFileHandle();

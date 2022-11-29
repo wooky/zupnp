@@ -9,9 +9,9 @@ const Manager = @This();
 const logger = std.log.scoped(.@"zupnp.upnp.device.Manager");
 
 const RegisteredDevice = struct {
-    const DeinitFn = fn(*anyopaque)void;
-    const HandleActionFn = fn(*anyopaque, zupnp.upnp.device.ActionRequest) zupnp.upnp.device.ActionResult;
-    const HandleEventSubscriptionFn = fn(*anyopaque, zupnp.upnp.device.EventSubscriptionRequest) zupnp.upnp.device.EventSubscriptionResult;
+    const DeinitFn = *const fn(*anyopaque)void;
+    const HandleActionFn = *const fn(*anyopaque, zupnp.upnp.device.ActionRequest) zupnp.upnp.device.ActionResult;
+    const HandleEventSubscriptionFn = *const fn(*anyopaque, zupnp.upnp.device.EventSubscriptionRequest) zupnp.upnp.device.EventSubscriptionResult;
 
     instance: *anyopaque,
     allocator: Allocator,
@@ -52,13 +52,15 @@ pub fn deinit(self: *Manager) void {
 pub fn createDevice(
     self: *Manager,
     comptime T: type,
+    server: *zupnp.web.Server,
     device_parameters: zupnp.upnp.definition.UserDefinedDeviceParameters,
     config: anytype,
 ) !*T {
     if (self.scpd_endpoint == null) {
         // TODO this is stupidly hacky
         // and yeah it has to be a pointer, otherwise it'll copy the server object
-        var server = &@fieldParentPtr(zupnp.ZUPnP, "device_manager", self).server;
+        // FIXME this line crashes Zig 0.10 compiler! Therefore `server` must be accepted as a function parameter.
+        // var server = &@fieldParentPtr(zupnp.ZUPnP, "device_manager", self).server;
         self.scpd_endpoint = try server.createEndpoint(ScpdEndpoint, .{ .allocator = self.arena.allocator() }, ScpdEndpoint.base_url);
     }
 
@@ -138,7 +140,7 @@ pub fn createDevice(
         return zupnp.Error;
     }
 
-    logger.info("Registered device {s} with UDN {s}", .{T, device_parameters.UDN});
+    logger.info("Registered device {any} with UDN {s}", .{T, device_parameters.UDN});
     return instance;
 }
 
@@ -179,10 +181,10 @@ fn onEventSubscribe(device: *RegisteredDevice, event: ?*const anyopaque) void {
     if (result.property_set) |property_set| {
         if (c.is_error(c.UpnpAcceptSubscriptionExt(
             device.device_handle,
-            event_subscription.getDeviceUdn(),
-            event_subscription.getServiceId(),
+            event_subscription.getDeviceUdn().ptr,
+            event_subscription.getServiceId().ptr,
             c.mutate(*c.IXML_Document, property_set.handle),
-            event_subscription.getSid()
+            event_subscription.getSid().ptr
         ))) |err| {
             logger.warn("Failed to accept event subscription: {s}", .{err});
         }

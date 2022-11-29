@@ -28,7 +28,8 @@ pub const ZUPnP = struct {
     server: web.Server,
 
     pub fn init(allocator: Allocator, config: Config) !ZUPnP {
-        if (c.is_error(c.UpnpInit2(config.if_name orelse null, config.port))) |err| {
+        const if_name_ptr = if (config.if_name) |if_name| if_name.ptr else null;
+        if (c.is_error(c.UpnpInit2(if_name_ptr, config.port))) |err| {
             logger.err("Failed to initialize library: {s}", .{err});
             return error.UPnPError;
         }

@@ -40,7 +40,7 @@ pub const ActionResult = struct {
         inline for (@typeInfo(@TypeOf(arguments)).Struct.fields) |field| {
             const key = field.name ++ "\x00";
             const value: [:0]const u8 = @field(arguments, field.name);
-            if (c.is_error(c.UpnpAddToActionResponse(&doc, action_name, service_type, key, value))) |err| {
+            if (c.is_error(c.UpnpAddToActionResponse(&doc, action_name, service_type.ptr, key, value.ptr))) |err| {
                 logger.err("Cannot create response: {s}", .{err});
                 return zupnp.Error;
             }

@@ -10,14 +10,14 @@ pub const Endpoint = struct {
     pub const Callbacks = union (enum) {
         WithInstance: struct {
             instance: *anyopaque,
-            deinitFn: ?fn(*anyopaque) void,
-            getFn: ?fn(*anyopaque, *const zupnp.web.ServerGetRequest) zupnp.web.ServerResponse,
-            postFn: ?fn(*anyopaque, *const zupnp.web.ServerPostRequest) bool,
+            deinitFn: ?*const fn(*anyopaque) void,
+            getFn: ?*const fn(*anyopaque, *const zupnp.web.ServerGetRequest) zupnp.web.ServerResponse,
+            postFn: ?*const fn(*anyopaque, *const zupnp.web.ServerPostRequest) bool,
         },
         WithoutInstance: struct {
-            deinitFn: ?fn() void,
-            getFn: ?fn(*const zupnp.web.ServerGetRequest) zupnp.web.ServerResponse,
-            postFn: ?fn(*const zupnp.web.ServerPostRequest) bool,
+            deinitFn: ?*const fn() void,
+            getFn: ?*const fn(*const zupnp.web.ServerGetRequest) zupnp.web.ServerResponse,
+            postFn: ?*const fn(*const zupnp.web.ServerPostRequest) bool,
         },
     };
     
@@ -128,11 +128,11 @@ pub const PostRequest = struct {
     contents: std.ArrayList(u8),
     seek_pos: usize,
 
-    pub fn createRequest(endpoint: *Endpoint, filename: [*c]const u8) !*Request {
+    pub fn createRequest(endpoint: *Endpoint, filename: [:0]const u8) !*Request {
         var req = try endpoint.allocator.create(Request);
         req.* = .{ .Post = .{
             .endpoint = endpoint,
-            .filename = std.mem.sliceTo(filename, 0),
+            .filename = filename,
             .contents = std.ArrayList(u8).init(endpoint.allocator),
             .seek_pos = 0,
         } };
@@ -155,7 +155,7 @@ pub const PostRequest = struct {
 
     pub fn write(self: *PostRequest, buf: [*c]u8, buflen: usize) callconv(.C) c_int {
         self.contents.appendSlice(buf[0..buflen]) catch |err| {
-            logger.err("Failed to write POST request to buffer: {s}", .{err});
+            logger.err("Failed to write POST request to buffer: {!}", .{err});
             return -1;
         };
         return @intCast(c_int, buflen);

@@ -1,7 +1,7 @@
 const zupnp = @import("../lib.zig");
 const c = @import("../c.zig");
-const ChunkedDeinitFn = fn(*anyopaque)void;
-const ChunkedGetChunkFn = fn(*anyopaque, []u8, usize)usize;
+const ChunkedDeinitFn = *const fn(*anyopaque)void;
+const ChunkedGetChunkFn = *const fn(*anyopaque, []u8, usize)usize;
 
 /// HTTP response to send back to the client.
 pub const ServerResponse = union(enum) {

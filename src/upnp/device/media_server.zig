@@ -98,7 +98,7 @@ pub const ContentDirectory = struct {
             zupnp.upnp.definition.content_directory.BrowseInput,
             request.getActionRequest()
         ) catch |err| {
-            cd_logger.warn("Failed to parse browse request: {s}", .{err});
+            cd_logger.warn("Failed to parse browse request: {!}", .{err});
             return ActionResult.createError(zupnp.upnp.definition.ActionError.InvalidArgs.toErrorCode());
         };
         defer browse_input.deinit();

@@ -14,7 +14,7 @@ pub fn fromSockaddStorage(in: *const c.sockaddr_storage) ClientAddress {
         .socket_address = std.x.os.Socket.Address.fromNative(@ptrCast(*const std.os.sockaddr, in)),
     };
     populateString(&client_address) catch |err| {
-        logger.err("Failed to get IP address of client: {s}", .{err});
+        logger.err("Failed to get IP address of client: {!}", .{err});
         client_address.buf_len = 0;
     };
     return client_address;

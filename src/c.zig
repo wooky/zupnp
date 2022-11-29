@@ -27,7 +27,7 @@ pub fn mutateCallback(
 
     const callback_fn = @field(InstanceType, callback_fn_name);
     const callback_fn_info = @typeInfo(@TypeOf(callback_fn)).Fn;
-    const endpoint_type_info = @typeInfo(EndpointType).Fn;
+    const endpoint_type_info = @typeInfo(@typeInfo(EndpointType).Pointer.child).Fn;
     if (callback_fn_info.return_type.? != endpoint_type_info.return_type.?) {
         @compileError("Wrong callback return type");
     }
@@ -43,5 +43,5 @@ pub fn mutateCallback(
         }
     }
 
-    return mutate(EndpointType, callback_fn);
+    return mutate(EndpointType, &callback_fn);
 }

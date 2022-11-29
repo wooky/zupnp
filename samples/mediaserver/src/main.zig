@@ -7,10 +7,10 @@ pub fn main() !void {
     lib.server.static_root_dir = "static";
     try lib.server.start();
     const zig_png = "/zig.png";
-    const zig_png_url = try std.fmt.allocPrint(std.heap.page_allocator, "{s}{s}", .{lib.server.base_url, zig_png});
+    const zig_png_url = try std.fmt.allocPrint(std.heap.page_allocator, "{s}{s}", .{lib.server.base_url.?, zig_png});
     defer std.heap.page_allocator.free(zig_png_url);
 
-    var media_server = try lib.device_manager.createDevice(zupnp.upnp.device.MediaServer, .{
+    var media_server = try lib.device_manager.createDevice(zupnp.upnp.device.MediaServer, &lib.server, .{
         .UDN = &try zupnp.util.uuid.generateUuid(),
         .friendlyName = "ZUPnP Test",
         .manufacturer = "ZUPnP",

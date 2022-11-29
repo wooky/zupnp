@@ -10,11 +10,11 @@ const zupnp = @import("../lib.zig");
 /// Make an HTTP request and get a response.
 pub fn request(method: zupnp.web.Method, url: [:0]const u8, client_request: zupnp.web.ClientRequest) !zupnp.web.ClientResponse {
     const logger = std.log.scoped(.@"zupnp.web.request");
-    logger.debug("Establishing a {s} request to {s}", .{method, url});
+    logger.debug("Establishing a {any} request to {s}", .{method, url});
 
     const timeout = client_request.timeout orelse -1;
     var handle: ?*anyopaque = undefined;
-    if (c.is_error(c.UpnpOpenHttpConnection(url, &handle, timeout))) |err| {
+    if (c.is_error(c.UpnpOpenHttpConnection(url.ptr, &handle, timeout))) |err| {
         logger.err("Failed opening HTTP connection: {s}", .{err});
         return zupnp.Error;
     }
@@ -29,12 +29,13 @@ pub fn request(method: zupnp.web.Method, url: [:0]const u8, client_request: zupn
     }
     else null;
 
+    const content_type_ptr = if (client_request.content_type) |content_type| content_type.ptr else null;
     if (c.is_error(c.UpnpMakeHttpRequest(
         method.toUpnpMethod(),
-        url,
+        url.ptr,
         handle,
         headers,
-        client_request.content_type orelse null,
+        content_type_ptr,
         @intCast(c_int, client_request.contents.len), timeout)
     )) |err| {
         logger.err("Failed making request to HTTP endpoint: {s}", .{err});
